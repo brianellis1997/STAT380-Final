@@ -36,3 +36,27 @@ Modes <- read_csv("CODGameModes.csv")
 kable(Modes)
 ```
 
+```{r}
+# Appending Player 2 df to Player 1 df
+Players <- P1 %>% 
+  rbind(P2)
+head(Players)
+```
+
+## Task 1 (Data Cleaning and Visualization)
+
+Research Question: Which maps are the most likely to win the map vote? 
+
+We will account for the fact that if there is a tie in voting, Map 1 is chosen by default. Therefore, we will locate whenever there is a tie and disregard the 'Choice' for that particular row. Games which are already underway already have the chosen map listed in choice so we don't care about the map votes for these rows. If we look at the variable 'Choice',
+```{r}
+sum(is.na(Players$Choice))
+```
+we see that there are only 2 NA values, so most of our data is present.
+
+```{r}
+unique(Players$Choice)
+unique(Maps$Name)
+```
+
+We can see that there are more unique map names in our Players dataframe as compared with the list of all the map names from our Maps dataframe. This shows us there are misspellings in the map names in the Players dataframe that we must correct before calculating summary statistics.
+
