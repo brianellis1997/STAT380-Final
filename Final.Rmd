@@ -1,0 +1,38 @@
+---
+title: "STAT 380 Final Project"
+author: "Brian Ellis and James Tondt"
+date: "2023-04-22"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Front Matter
+```{r}
+rm(list = ls())
+#Add libraries as needed
+library(tidyverse)
+library(knitr)
+```
+
+## Call of Duty
+
+![](Call-of-Duty.jpg-d196774.png)
+
+```{r}
+# Load datasets
+P1 <- read_csv(file = "CODGames_p1_380.csv", show_col_types = FALSE)
+kable(head(P1))
+
+P2 <- read_csv("CODGames_p2_380.csv", show_col_types = FALSE)
+kable(head(P2))
+
+Maps <- read_csv("CODMaps.csv")
+kable(head(Maps))
+
+Modes <- read_csv("CODGameModes.csv")
+kable(Modes)
+```
+
