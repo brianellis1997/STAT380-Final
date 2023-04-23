@@ -60,3 +60,31 @@ unique(Maps$Name)
 
 We can see that there are more unique map names in our Players dataframe as compared with the list of all the map names from our Maps dataframe. This shows us there are misspellings in the map names in the Players dataframe that we must correct before calculating summary statistics.
 
+```{r}
+Maps %>% 
+  full_join(Players, by = c("Name" = "Choice")) %>% 
+  group_by(Name) %>% 
+  summarize(Count = n())
+```
+
+Using this join query, we can see there are multiple misspellings, added spaces, and a couple NA values. We shall correct for all this before running summaries.
+
+The first thing we can do to correct is remove the added spaces.
+
+```{r}
+# remove NAs
+Players <- Players %>% 
+  na.omit(Choice)
+# Remove trailing or leading spaces
+Players$Map1 <- trimws(Players$Map1)
+Players$Map2 <- trimws(Players$Map2)
+Players$Choice <- trimws(Players$Choice)
+```
+
+
+```{r}
+# Fixing typos in map names
+Players$Map1[Players$Map1 == "APocalypse"] <- "Apocalypse" 
+```
+
+
