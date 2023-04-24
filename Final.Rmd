@@ -69,16 +69,69 @@ Maps %>%
 
 Using this join query, we can see there are multiple misspellings, added spaces, and a couple NA values. We shall correct for all this before running summaries.
 
-The first thing we can do to correct is remove the added spaces.
+Before running summary statistics, we must clean the data contained within the Choice and Map variables
 
 ```{r}
-# remove NAs
+# remove NAs from Choice
 Players <- Players %>% 
-  na.omit(Choice)
+  drop_na(Choice)
 # Remove trailing or leading spaces
-Players$Map1 <- trimws(Players$Map1)
-Players$Map2 <- trimws(Players$Map2)
-Players$Choice <- trimws(Players$Choice)
+Players <- Players %>% 
+  mutate(Choice = trimws(Choice),
+         Map1 = trimws(Map1),
+         Map2 = trimws(Map2))
+# Fix name misspellings
+#Players$Choice[Players$Choice == "APocalypse"] <- "Apocalypse" 
+
+# Players %>% mutate(Choicespl = strsplit(Choice, " "),
+#                    Choice = Choicespl[[2]][[1]])
+
+# Define a list of misspellings and their correct spellings and specify certain spellings for words with spaces in their names with '\\W'
+misspellings <- list("APocalypse" = "Apocalypse", "Apocolypse" = "Apocalypse", "\\bCollaterel Strike\\b" = "Collateral", "\\bCollateral Strike\\b" = "Collateral", "Deisel" = "Diesel", "Drive-in" = "Drive-In", "\\bMiami Strike\\b" = "Miami", "\\bNuketown\\b.*" = "Nuketown", "Riad" = "Raid")
+
+# Loop through the misspellings list and apply regex to correct the misspellings
+for (misspelling in names(misspellings)) {
+  correction <- misspellings[[misspelling]]
+  Players$Choice <- gsub(misspelling, correction, Players$Choice, ignore.case = TRUE)
+}
+
+# Run new query of count of Map names to see if typos were corrected
+# Maps %>% 
+#   full_join(Players, by = c("Name" = "Choice")) %>% 
+#   group_by(Name) %>% 
+#   summarize(Count = n())
+
+Players %>% 
+  group_by(Choice) %>% 
+  summarise(count = n())
+```
+
+```{r, eval=FALSE}
+# Try splitting the Map names into strings and use only the first part of the names as identifiers
+ResultChar <- strsplit(Players$Choice, " ")
+
+Choice_name <- rep(NA, length(ResultChar))
+
+for (i in 1:length(ResultChar)) {
+  Choice_name[i] <- (ResultChar[[i]][1])
+}
+
+# Convert choice into df
+Choice_name <- data.frame(Name = Choice_name, stringsAsFactors = FALSE)
+# Visualize
+Players %>% 
+  full_join(Choice_name, by = c("Choice" = "Name")) %>% 
+  group_by(Choice) %>% 
+  summarize(Count = n())
+```
+
+
+```{r}
+# Vizualization of Choice
+Players %>% 
+  ggplot(aes(x = Choice)) +
+  geom_histogram(stat = "count") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
 ```
 
 
