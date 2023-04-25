@@ -10,7 +10,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ## Front Matter
-```{r}
+```{r, message = FALSE, warning = FALSE}
 rm(list = ls())
 #Add libraries as needed
 library(tidyverse)
@@ -46,7 +46,7 @@ head(Players)
 
 Research Question: Which maps are the most likely to win the map vote? 
 
-In order to answer this question, a good place to start would be to clean the data in the Map and Choice columns so that there are no NA values or misspellings. We can then run some summary statistics and visualizations to discover the amount of times a map has won the map vote or was selected as the choice. We will have to make a decision as to whether or not we will include those maps who were chosen by default due to a player entering a game partially, because we would lose the information of which map the winning map faced in the vote. We also believe that calulcating the proportion of winning percentage for each map would be more beneficial than simple counting stats because we can see the winning percentage of maps. We will account for the fact that if there is a tie in voting, Map 1 is chosen by default. Therefore, we will locate whenever there is a tie and disregard the 'Choice' for that particular row. Games which are already underway already have the chosen map listed in choice so we don't care about the map votes for these rows. If we look at the variable 'Choice',
+In order to answer this question, a good place to start would be to clean the data in the Map and Choice columns so that there are no NA values or misspellings. We can then run some summary statistics and visualizations to discover the amount of times a map has won the map vote or was selected as the choice. We will have to make a decision as to whether or not we will include those maps who were chosen by default due to a player entering a game partially, because we would lose the information of which map the winning map faced in the vote. We also believe that calculating the proportion of winning percentage for each map would be more beneficial than simple counting stats because we can see the winning percentage of maps. We will account for the fact that if there is a tie in voting, Map 1 is chosen by default. Therefore, we will locate whenever there is a tie and disregard the 'Choice' for that particular row. Games which are already underway already have the chosen map listed in choice so we don't care about the map votes for these rows. If we look at the variable 'Choice',
 ```{r}
 sum(is.na(Players$Choice))
 ```
@@ -65,6 +65,7 @@ Maps %>%
   group_by(Name) %>% 
   summarize(Count = n())
 ```
+
 
 Using this join query, we can see there are multiple misspellings, added spaces, and a couple NA values. We shall correct for all this before running summaries.
 
@@ -116,11 +117,11 @@ Maps %>%
   summarize(Count = n())
 ```
 
-Since there are new typos, we just need to adjust our misspellings list to account for these. Note, we use the '\\b' encasings to denote we want to only replace the value when it matches exacly that spelling.
+Since there are new typos, we just need to adjust our misspellings list to account for these. Note, we use the '\\b' encasing to denote we want to only replace the value when it matches exactly that spelling.
 
 ```{r}
 # Map1 Data Cleaning
-# Define a list of misspellings and their correct spellings and specify certain spellings for words with spaces in their names with '\\W'
+# Define a list of misspellings and their correct spellings and specify certain spellings for words with spaces in their names with '\\b'
 misspellings <- list("\\bCollateral Striek\\b" = "Collateral", "\\bCollateral Strike\\b" = "Collateral", "\\bCollaterol Strike\\b" = "Collateral", "Deprogam" = "Deprogram", "Drive-in" = "Drive-In", "\\bMiami Stirke\\b" = "MiamiStrike", "\\bMiami Strike\\b" = "MiamiStrike", "\\bNuketown '84\\b" = "Nuketown", "Riad" = "Raid", "Ruah" = "Rush")
 
 # Loop through the misspellings list and apply regex to correct the misspellings
@@ -161,10 +162,10 @@ Players %>%
   summarise(Count = n())
 ```
 
-Now that our data is cleaned and variables match eachother, we can begin visualizing the data.
+Now that our data is cleaned and variables match each other, we can begin visualizing the data.
 
 ```{r}
-# Vizualization of Choice
+# Visualization of Choice
 Players %>% 
   ggplot(aes(x = Choice)) +
   geom_histogram(stat = "count") +
@@ -176,7 +177,7 @@ Players %>%
 
 
 ```{r}
-# Vizualization of Map 1
+# Visualization of Map 1
 Players %>% 
   ggplot(aes(x = Map1)) +
   geom_histogram(stat = "count") +
@@ -185,7 +186,7 @@ Players %>%
        y = "Count") +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
 
-# Map 2
+# Visualization of Map 2
 Players %>% 
   ggplot(aes(x = Map2)) +
   geom_histogram(stat = "count", na.rm = TRUE) +
@@ -201,5 +202,61 @@ Now we need to work with the MapVote variable and identify when a tie takes plac
 
 ```{r}
 table(Players$Choice)
+```
+
+
+
+# Task 2
+
+```{r}
+
+# Clean the data to clear to distinction between HC-TDM/Hardpoint and TDM/Hardpoint
+
+Players <- 
+  Players %>%
+  mutate(GameType = str_replace(GameType, "HC - ", "")) 
+
+# Check to see if data was properly cleaned and if there are any NAs
+Players %>% 
+  group_by(GameType) %>% 
+  summarise(Count = n())
+
+```
+
+
+The GameType column has been cleaned so we can now start an exploratory data analysis. 
+
+
+```{r}
+ggplot(Players,
+       aes(x = Score, y = TotalXP, color = GameType)) +
+  geom_point() +
+  labs(title = "Total experience points vs Score by Game Type",
+       y = "Total experience points")
+
+```
+
+
+```{r}
+ggplot(Players, aes(x = GameType, y = TotalXP)) +
+  geom_boxplot(fill = "blue", color = "black") +
+  labs(title = "Distribution of Total experience points by Game Type")
+
+ggplot(Players, aes(x = GameType, y = Score)) +
+  geom_boxplot(fill = "blue", color = "black") +
+  labs(title = "Distribution of Score by Game Type")
+
+```
+
+```{r}
+
+```
+
+
+
+```{r}
+model1 <- lm(TotalXP ~ Score + GameType, data = Players)
+summary(model1)
+
 ```
 
