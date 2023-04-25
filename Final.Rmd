@@ -18,7 +18,7 @@ library(tidyverse)
 
 ## Call of Duty
 
-![](Call-of-Duty.jpg-d196774.png)
+![CODGames](Call-of-Duty.jpg-d196774.png)
 
 ```{r}
 # Load datasets
