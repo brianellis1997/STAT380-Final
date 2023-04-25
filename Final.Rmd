@@ -14,7 +14,6 @@ knitr::opts_chunk$set(echo = TRUE)
 rm(list = ls())
 #Add libraries as needed
 library(tidyverse)
-library(knitr)
 ```
 
 ## Call of Duty
@@ -24,16 +23,16 @@ library(knitr)
 ```{r}
 # Load datasets
 P1 <- read_csv(file = "CODGames_p1_380.csv", show_col_types = FALSE)
-kable(head(P1))
+head(P1)
 
 P2 <- read_csv("CODGames_p2_380.csv", show_col_types = FALSE)
-kable(head(P2))
+head(P2)
 
 Maps <- read_csv("CODMaps.csv")
-kable(head(Maps))
+head(Maps)
 
 Modes <- read_csv("CODGameModes.csv")
-kable(Modes)
+Modes
 ```
 
 ```{r}
@@ -47,7 +46,7 @@ head(Players)
 
 Research Question: Which maps are the most likely to win the map vote? 
 
-We will account for the fact that if there is a tie in voting, Map 1 is chosen by default. Therefore, we will locate whenever there is a tie and disregard the 'Choice' for that particular row. Games which are already underway already have the chosen map listed in choice so we don't care about the map votes for these rows. If we look at the variable 'Choice',
+In order to answer this question, a good place to start would be to clean the data in the Map and Choice columns so that there are no NA values or misspellings. We can then run some summary statistics and visualizations to discover the amount of times a map has won the map vote or was selected as the choice. We will have to make a decision as to whether or not we will include those maps who were chosen by default due to a player entering a game partially, because we would lose the information of which map the winning map faced in the vote. We also believe that calulcating the proportion of winning percentage for each map would be more beneficial than simple counting stats because we can see the winning percentage of maps. We will account for the fact that if there is a tie in voting, Map 1 is chosen by default. Therefore, we will locate whenever there is a tie and disregard the 'Choice' for that particular row. Games which are already underway already have the chosen map listed in choice so we don't care about the map votes for these rows. If we look at the variable 'Choice',
 ```{r}
 sum(is.na(Players$Choice))
 ```
@@ -72,7 +71,8 @@ Using this join query, we can see there are multiple misspellings, added spaces,
 Before running summary statistics, we must clean the data contained within the Choice and Map variables
 
 ```{r}
-# remove NAs from Choice
+# Choice Data Cleaning
+# remove NAs from Choice since there are only 2
 Players <- Players %>% 
   drop_na(Choice)
 # Remove trailing or leading spaces
@@ -80,64 +80,126 @@ Players <- Players %>%
   mutate(Choice = trimws(Choice),
          Map1 = trimws(Map1),
          Map2 = trimws(Map2))
-# Fix name misspellings
-#Players$Choice[Players$Choice == "APocalypse"] <- "Apocalypse" 
-
-# Players %>% mutate(Choicespl = strsplit(Choice, " "),
-#                    Choice = Choicespl[[2]][[1]])
 
 # Define a list of misspellings and their correct spellings and specify certain spellings for words with spaces in their names with '\\W'
-misspellings <- list("APocalypse" = "Apocalypse", "Apocolypse" = "Apocalypse", "\\bCollaterel Strike\\b" = "Collateral", "\\bCollateral Strike\\b" = "Collateral", "Deisel" = "Diesel", "Drive-in" = "Drive-In", "\\bMiami Strike\\b" = "Miami", "\\bNuketown\\b.*" = "Nuketown", "Riad" = "Raid")
+misspellings <- list("APocalypse" = "Apocalypse", "Apocolypse" = "Apocalypse", "\\bCollaterel Strike\\b" = "Collateral", "\\bCollateral Strike\\b" = "Collateral", "Deisel" = "Diesel", "Drive-in" = "Drive-In", "\\bMiami Strike\\b" = "MiamiStrike", "\\bNuketown\\b.*" = "Nuketown", "Riad" = "Raid")
 
 # Loop through the misspellings list and apply regex to correct the misspellings
 for (misspelling in names(misspellings)) {
   correction <- misspellings[[misspelling]]
   Players$Choice <- gsub(misspelling, correction, Players$Choice, ignore.case = TRUE)
 }
-
-# Run new query of count of Map names to see if typos were corrected
-# Maps %>% 
-#   full_join(Players, by = c("Name" = "Choice")) %>% 
-#   group_by(Name) %>% 
-#   summarize(Count = n())
-
+# Run new query to see if misspellings were corrected
 Players %>% 
   group_by(Choice) %>% 
-  summarise(count = n())
+  summarise(Count = n())
 ```
 
-```{r, eval=FALSE}
-# Try splitting the Map names into strings and use only the first part of the names as identifiers
-ResultChar <- strsplit(Players$Choice, " ")
+We ended up changing some map names, e.g., "Collateral Strike" is now just "Collateral" and "Miami Strike" is "MiamiStrike". We needed to make these map names single words because otherwise the loop would not process or recognize the names correctly once they were altered.
 
-Choice_name <- rep(NA, length(ResultChar))
+Our misspellings are corrected and we can perform this data cleaning process on Map1 and Map2 variables now
 
-for (i in 1:length(ResultChar)) {
-  Choice_name[i] <- (ResultChar[[i]][1])
-}
-
-# Convert choice into df
-Choice_name <- data.frame(Name = Choice_name, stringsAsFactors = FALSE)
-# Visualize
+```{r}
+sum(is.na(Players$Map1))
+sum(is.na(Players$Map2))
 Players %>% 
-  full_join(Choice_name, by = c("Choice" = "Name")) %>% 
-  group_by(Choice) %>% 
+  filter(FullPartial == "Partial") %>% 
   summarize(Count = n())
 ```
 
+Both Map1 and Map2 variables have 163 missing values even though there are only 80 Partial games in the dataset. Therefore, we shouldn't remove the rows with NA values because those rows still have Choice values. Let's see if we can find typos in the map names by comparing them with the Map table
+
+```{r}
+Maps %>% 
+  full_join(Players, by = c("Name" = "Map1")) %>% 
+  group_by(Name) %>% 
+  summarize(Count = n())
+```
+
+Since there are new typos, we just need to adjust our misspellings list to account for these. Note, we use the '\\b' encasings to denote we want to only replace the value when it matches exacly that spelling.
+
+```{r}
+# Map1 Data Cleaning
+# Define a list of misspellings and their correct spellings and specify certain spellings for words with spaces in their names with '\\W'
+misspellings <- list("\\bCollateral Striek\\b" = "Collateral", "\\bCollateral Strike\\b" = "Collateral", "\\bCollaterol Strike\\b" = "Collateral", "Deprogam" = "Deprogram", "Drive-in" = "Drive-In", "\\bMiami Stirke\\b" = "MiamiStrike", "\\bMiami Strike\\b" = "MiamiStrike", "\\bNuketown '84\\b" = "Nuketown", "Riad" = "Raid", "Ruah" = "Rush")
+
+# Loop through the misspellings list and apply regex to correct the misspellings
+for (misspelling in names(misspellings)) {
+  correction <- misspellings[[misspelling]]
+  Players$Map1 <- gsub(misspelling, correction, Players$Map1, ignore.case = TRUE)
+}
+# Run new query to see if misspellings were corrected
+Players %>% 
+  group_by(Map1) %>% 
+  summarise(Count = n())
+```
+
+Great, now we just have to clean the names of Map2 and we can begin performing visualizations and running summary statistics.
+
+```{r}
+Maps %>% 
+  full_join(Players, by = c("Name" = "Map2")) %>% 
+  group_by(Name) %>% 
+  summarize(Count = n())
+```
+
+FIX MIAMI VS MIAMI STRIKE!!!    
+
+```{r}
+# Map2 Data Cleaning
+# Define a list of misspellings and their correct spellings
+misspellings <- list("\\bAmrada Strike\\b" = "Armada Strike", "\\bCollateral Strike\\b" = "Collateral", "Drive-in" = "Drive-In", "\\bMiami Sstrike\\b" = "MiamiStrike", "\\bMiami Stirke\\b" = "MiamiStrike", "\\bMiami Strike\\b" = "MiamiStrike", "\\bNuketown\\b.*" = "Nuketown", "\\byamantau\\b" = "Yamantau")
+
+# Loop through the misspellings list and apply regex to correct the misspellings
+for (misspelling in names(misspellings)) {
+  correction <- misspellings[[misspelling]]
+  Players$Map2 <- gsub(misspelling, correction, Players$Map2, ignore.case = TRUE)
+}
+# Run new query to see if misspellings were corrected
+Players %>% 
+  group_by(Map2) %>% 
+  summarise(Count = n())
+```
+
+Now that our data is cleaned and variables match eachother, we can begin visualizing the data.
 
 ```{r}
 # Vizualization of Choice
 Players %>% 
   ggplot(aes(x = Choice)) +
   geom_histogram(stat = "count") +
+  labs(title = "Distribution of Choice",
+       x = "Choice",
+       y = "Count") +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
 ```
 
 
 ```{r}
-# Fixing typos in map names
-Players$Map1[Players$Map1 == "APocalypse"] <- "Apocalypse" 
+# Vizualization of Map 1
+Players %>% 
+  ggplot(aes(x = Map1)) +
+  geom_histogram(stat = "count") +
+  labs(title = "Distribution of Map 1",
+       x = "Map",
+       y = "Count") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+
+# Map 2
+Players %>% 
+  ggplot(aes(x = Map2)) +
+  geom_histogram(stat = "count", na.rm = TRUE) +
+  labs(title = "Distribution of Map 2",
+       x = "Map",
+       y = "Count") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
 ```
 
+From these visualizations, we can verify that the map names do not change but the distributions do. Our data cleaning is complete and we can now move onto calculating proportions.
+
+Now we need to work with the MapVote variable and identify when a tie takes place. This is important, because whenever there is a tie Map1 gets chosen by default.
+
+```{r}
+table(Players$Choice)
+```
 
