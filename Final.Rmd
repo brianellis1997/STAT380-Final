@@ -9,6 +9,8 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+Remember to customize plot axis titles and labels. Professor takes off points for non-customized labels and visualizations
+
 ## Front Matter
 ```{r, message = FALSE, warning = FALSE}
 rm(list = ls())
@@ -198,10 +200,28 @@ Players %>%
 
 From these visualizations, we can verify that the map names do not change but the distributions do. Our data cleaning is complete and we can now move onto calculating proportions.
 
-Now we need to work with the MapVote variable and identify when a tie takes place. This is important, because whenever there is a tie Map1 gets chosen by default.
+Now we need to work with the MapVote variable and identify when a tie takes place. This is important, because whenever there is a tie Map1 gets chosen by default. We will first alter the MapVote variable into a numerical form where we can compare the two numbers in the column between eachother and store each time the two numbers are equivalent.
 
 ```{r}
-table(Players$Choice)
+# Remove NAs from Mapvote
+Map_vote <- Players$MapVote
+Map_vote <- na.omit(Map_vote)
+# Split Mapvote by
+Vote_split <- strsplit(Map_vote, " to ") # include spaces in split
+
+# Remove NA values
+# Vote_split <- na.omit(Vote_split) <- Don't know if this is necessary
+
+# Initialize storage
+First_vote <- rep(NA, length(Vote_split))
+Second_vote <- rep(NA, length(Vote_split))
+Draw <- rep(NA, length(Vote_split))
+
+# Loop through Vote_split and store first and second vote numbers
+for (i in 1:length(Vote_split)) {
+  First_vote[i] <- (Vote_split[[i]][1])
+  Second_vote[i] <- (Vote_split[[i]][2])
+}
 ```
 
 
