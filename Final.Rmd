@@ -206,8 +206,8 @@ Now we need to work with the MapVote variable and identify when a tie takes plac
 # Remove NAs from Mapvote
 Map_vote <- Players$MapVote
 Map_vote <- na.omit(Map_vote)
-# Split Mapvote by
-Vote_split <- strsplit(Map_vote, " to ") # include spaces in split
+# Split Mapvote
+Vote_split <- strsplit(Map_vote, "to")
 
 # Remove NA values
 # Vote_split <- na.omit(Vote_split) <- Don't know if this is necessary
@@ -222,8 +222,67 @@ for (i in 1:length(Vote_split)) {
   First_vote[i] <- (Vote_split[[i]][1])
   Second_vote[i] <- (Vote_split[[i]][2])
 }
+
+print(tail(First_vote, 200))
+print(which(First_vote == "4 o 0"))
+print(which(First_vote == "2 o 0"))
+print(length(First_vote))
+print(length(Second_vote))
 ```
 
+We see that there are some entries that do not represent numbers that will be unsuccessfully converted to numeric values if we were to convert them now. We must impute these values and figure out there true meaning. The two entries in question from our vector First_vote are "4 o 0" and "2 o 0". This relates to a fundamental problem in our strsplit initially. The word "to" is misspelled as "o", meaning that these numbers will not be recognized by our split. This doesn't cause us an issue in this case because we are only concerned with the votes that ended up being ties and it seems like the votes were "2 to 0" and "4 to 0" respectively. This is something to note at the very least, let's now check our Second_vote vector to see the values before we convert them to numeric.
+
+Now we know we must fix our strsplit function to cover these two cases.
+
+
+```{r}
+# Split Mapvote by "to" or "o"
+Vote_split <- strsplit(Map_vote, "to|o")
+
+# Remove NA values
+# Vote_split <- na.omit(Vote_split) <- Don't know if this is necessary
+
+# Initialize storage
+First_vote <- rep(NA, length(Vote_split))
+Second_vote <- rep(NA, length(Vote_split))
+Draw <- rep(NA, length(Vote_split))
+
+# Loop through Vote_split and store first and second vote numbers
+for (i in 1:length(Vote_split)) {
+  First_vote[i] <- (Vote_split[[i]][1])
+  Second_vote[i] <- (Vote_split[[i]][2])
+}
+
+print(tail(First_vote, 200))
+print(which(First_vote == "4 o 0"))
+print(which(First_vote == "2 o 0"))
+print(length(First_vote))
+print(length(Second_vote))
+```
+
+Now we can't find the previous misspelled values and our number of rows are still same for our vectors.
+
+We can compare the two vectors and count the number of times they match which would be equivalent to a draw.
+
+```{r}
+# Convert to numeric
+First_vote <- as.numeric(First_vote)
+Second_vote <- as.numeric(Second_vote)
+
+# Store Boolean values for equality
+equal_elements <- First_vote == Second_vote
+# Extract elements that are equal
+equal_values <- First_vote[equal_elements]
+
+# Count number of equal occurrences
+num_equal <- sum(equal_elements)
+
+# Print the extracted elements and count
+print(head(equal_values))
+print(num_equal)
+```
+
+We now arrive at the number of times there was a draw in map votes between two maps. We know that whenever this occurs, Map1 is chosen by default. We can take this into consideration during our calculations.
 
 
 # Task 2
@@ -260,11 +319,13 @@ ggplot(Players,
 ```{r}
 ggplot(Players, aes(x = GameType, y = TotalXP)) +
   geom_boxplot(fill = "blue", color = "black") +
-  labs(title = "Distribution of Total experience points by Game Type")
+  labs(title = "Distribution of Total experience points by Game Type",
+       x = "Game Type")
 
 ggplot(Players, aes(x = GameType, y = Score)) +
   geom_boxplot(fill = "blue", color = "black") +
-  labs(title = "Distribution of Score by Game Type")
+  labs(title = "Distribution of Score by Game Type",
+       x = "Game Type")
 
 ```
 
