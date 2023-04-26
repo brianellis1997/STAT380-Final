@@ -284,7 +284,7 @@ print(num_equal)
 
 We now arrive at the number of times there was a draw in map votes between two maps. We know that whenever this occurs, Map1 is chosen by default. We can take this into consideration during our calculations.
 
-
+Whenever the map vote results in a tie, we should discard the result of Choice and not consider it as a win.
 
 # Task 2
 
