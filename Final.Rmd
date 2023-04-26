@@ -262,7 +262,7 @@ print(length(Second_vote))
 
 Now we can't find the previous misspelled values and our number of rows are still same for our vectors.
 
-We can compare the two vectors and count the number of times they match which would be equivalent to a draw.
+We can compare the two vectors and count the number of times they match which would be equivalent to a draw. It is important that we keep the original order of our data frame so that we can know which rows ended in draws. We can then append the draw vector to our original data frame.
 
 ```{r}
 # Convert to numeric
@@ -283,6 +283,7 @@ print(num_equal)
 ```
 
 We now arrive at the number of times there was a draw in map votes between two maps. We know that whenever this occurs, Map1 is chosen by default. We can take this into consideration during our calculations.
+
 
 
 # Task 2
