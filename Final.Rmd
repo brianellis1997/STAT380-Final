@@ -205,7 +205,7 @@ Now we need to work with the MapVote variable and identify when a tie takes plac
 ```{r}
 # Remove NAs from Mapvote
 Map_vote <- Players$MapVote
-Map_vote <- na.omit(Map_vote)
+#Map_vote <- na.omit(Map_vote)
 # Split Mapvote
 Vote_split <- strsplit(Map_vote, "to")
 
@@ -264,27 +264,88 @@ Now we can't find the previous misspelled values and our number of rows are stil
 
 We can compare the two vectors and count the number of times they match which would be equivalent to a draw. It is important that we keep the original order of our data frame so that we can know which rows ended in draws. We can then append the draw vector to our original data frame.
 
-```{r}
-# Convert to numeric
-First_vote <- as.numeric(First_vote)
-Second_vote <- as.numeric(Second_vote)
-
-# Store Boolean values for equality
-equal_elements <- First_vote == Second_vote
-# Extract elements that are equal
-equal_values <- First_vote[equal_elements]
-
-# Count number of equal occurrences
-num_equal <- sum(equal_elements)
-
-# Print the extracted elements and count
-print(head(equal_values))
-print(num_equal)
-```
-
 We now arrive at the number of times there was a draw in map votes between two maps. We know that whenever this occurs, Map1 is chosen by default. We can take this into consideration during our calculations.
 
-Whenever the map vote results in a tie, we should discard the result of Choice and not consider it as a win.
+Whenever the map vote results in a tie, we should discard the result of Choice and not consider it as a win. We need to loop through all rows in the data frame Players and compare the map vote totals. If there is a tie, we must note this and discard Choice, otherwise, the Choice correclty depicts the winner. We must make proportions, by summing up the total number of times a map was present in either Map1 or Map2 and its winning percentage. We may or may not discard the NA values of Map1 and Map2 because we don't know which maps the winner was competing against, but let's see.
+
+It is important that we maintain order in our vector Draw so that we can append it to the Players dataframe and have it correctly represent the row that ends in a draw.
+
+```{r}
+# Convert to numeric for comparison sake
+First_vote <- as.numeric(First_vote)
+Second_vote <- as.numeric(Second_vote)
+# Loop through Vote split and store 1 to Draw for every equal vote total, 0 otherwise
+for (i in 1:length(Vote_split)) {
+  # If the first vote has NA values, the second vote vector will as well
+  if (is.na(First_vote[i])) {
+    Draw[i] <- 0
+  }
+  # If the numbers in first vote and second vote are equivalent, then store a 1 in Draw vector
+  else if (First_vote[i] == Second_vote[i]) {
+    Draw[i] <- 1
+  }
+  else {
+    Draw[i] <- 0
+  }
+}
+sum(Draw)
+```
+
+We get 103 for the sum in Draw which is the same as our previous calculations, telling us that our loop worked and we can now add this Draw vector to the Players data frame and begin comparison.
+
+```{r}
+Players <-
+  Players %>% 
+  mutate(Draw = Draw)
+
+head(Players)
+```
+
+After adding the Draw vector, we see it correctly indicates a 1 in the 5th row where there is a draw in the MapVote column.
+
+```{r}
+MapVoteWin <- Players %>%
+  group_by(Map1) %>%
+  summarize(Map1_Count = n(), Choice_M1 = sum(Choice == Map1), Draw_M1 = sum(Draw), Real_Win = Choice_M1 - Draw_M1) %>%
+  left_join(
+    Players %>%
+      group_by(Map2) %>%
+      summarize(Map2_Count = n(), Choice_M2 = sum(Choice == Map2), Draw_M2 = sum(Draw), Real_Loss = Map2_Count - Draw_M2),
+    by = c("Map1" = "Map2")
+  ) %>%
+  mutate(
+    Total_Count = Map1_Count + Map2_Count,
+    Total_Choice = Choice_M1 + Choice_M2,
+    Total_Draw = Draw_M1 + Draw_M2,
+    Prop_Choice = Total_Choice / Total_Count,
+    Adjusted_Choice_Count = Real_Win + Choice_M2,
+    Adjusted_Prop_Choice = Adjusted_Choice_Count / (Map1_Count + Real_Loss)
+  ) %>% 
+  rename(Map = Map1) %>% 
+  na.omit()
+MapVoteWin
+```
+
+```{r}
+MapVoteWin %>% 
+  select(Map, Total_Count, Total_Choice, Total_Draw, Real_Win, Real_Loss, Adjusted_Choice_Count, Prop_Choice, Adjusted_Prop_Choice) %>% 
+  arrange(desc(Adjusted_Prop_Choice))
+```
+
+From this analysis, we can see that the 3 maps most likely to win the map vote are Raid, Nuketown, and Crossroads Strike with true winning percentages of 75.6%, 73.7%, and 73.2% respectively. Nuketown actually had the highest proportion of Choice selection, with 82.5%, however it drew in map voting 5 times when it was Map1 and thus was selected 5 times by default when there was a tie in voting, greatly boosting its Choice proportion. This is why we created the variables of 'Real_Win' and 'Real_Loss' to account for the number of times a map in Map1 column truly won the map vote and not by default and the number of times a map in Map2 actually lost the map vote and not lost by default because of a tie.
+
+We can visualze this data
+```{r}
+MapVoteWin %>% 
+  ggplot(aes(x = Map, fill = "dodgerblue")) +
+  geom_bar(aes(weight = Adjusted_Prop_Choice), show.legend = F) +
+  scale_fill_manual(values = c("dodgerblue")) +
+  labs(title = "Probability to Win Map Vote",
+       x = "Map",
+       y = "Proportion of Map Vote Win") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+```
+
 
 # Task 2
 
