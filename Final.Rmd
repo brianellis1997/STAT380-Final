@@ -80,7 +80,9 @@ Before running summary statistics, we must clean the data contained within the C
 # Choice Data Cleaning
 # remove NAs from Choice since there are only 2
 Players <- Players %>% 
-  drop_na(Choice)
+  drop_na(Choice) %>%  
+  drop_na(Map1) %>% 
+  drop_na(Map2)
 # Remove trailing or leading spaces
 Players <- Players %>% 
   mutate(Choice = trimws(Choice),
@@ -304,7 +306,7 @@ Players <-
 head(Players)
 ```
 
-After adding the Draw vector, we see it correctly indicates a 1 in the 5th row where there is a draw in the MapVote column.
+After adding the Draw vector, we see it correctly indicates a 1 in the 4th row where there is a draw in the MapVote column.
 
 ```{r}
 MapVoteWin <- Players %>%
@@ -349,6 +351,7 @@ MapVoteWin %>%
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
 ```
 
+(maybe add more visualizations)
 
 # Task 2
 
