@@ -16,6 +16,8 @@ Remember to customize plot axis titles and labels. Professor takes off points fo
 rm(list = ls())
 #Add libraries as needed
 library(tidyverse)
+library(randomForest)
+library(lubridate)
 ```
 
 ## Call of Duty
@@ -407,12 +409,13 @@ summary(model1)
 
 ```
 
-```{r}
-Players %>% 
-  group_by(GameType, XPType) %>% 
-  summarize(N = n()) %>% 
-  arrange(desc(N))
-```
+
+## Task 3
+
+Which Primary Weapon is best in terms of Eliminations? (If we were given a player's stat line, can we know which weapon they used?)
+Can we predict weapon type based on several factors?
+
+To answer this research question, we will have to account for factors such as which game type because each types has different lengths . We will go by average eliminations for each weapon and account for factors such as game type which can have different lengths. We will have to perform some data cleaning initially to make sure each weapon is accounted for and does not have typos. We then will decide on a threshold of the number of games a weapon must have been used in to be considered, too few games will not be convincing enough. We will be removing partial matches from consideration since we are analyzing a counting statistic 'Eliminations'. 
 
 ```{r}
 Players %>% 
@@ -420,8 +423,102 @@ Players %>%
   summarize(N = n())
 ```
 
-## Task 3
+We notice that there are some typos in a couple guns and multiple NA values which we must clean up before moving forward
 
-Which Primary Weapon is best in terms of Eliminations?
+```{r}
+# Drop NA values
+Players <- Players %>% 
+  drop_na(PrimaryWeapon)
 
-To answer this research question, we will have to account for factors such as which game type because each types has different lengths . We will go by average eliminations for each weapon and account for factors such as game type which can have different lengths. We will have to perform some data cleaning initially to make sure each weapon is accounted for and does not have typos.
+# Correct typos
+misspellings <- list("\\bMilano 821\\b" = "Milano", "\\bPellington\\b" = "Pelington 703")
+
+# Loop through the misspellings list and apply regex to correct the misspellings
+for (misspelling in names(misspellings)) {
+  correction <- misspellings[[misspelling]]
+  Players$PrimaryWeapon <- gsub(misspelling, correction, Players$PrimaryWeapon, ignore.case = TRUE)
+}
+
+# View corrections
+Players %>% 
+  group_by(PrimaryWeapon) %>% 
+  summarize(N = n())
+```
+
+```{r}
+Players %>% 
+  ggplot(aes(x = PrimaryWeapon, y = Eliminations)) +
+  geom_boxplot() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+```
+
+```{r}
+Players %>% 
+  ggplot(aes(x = Damage, y = Eliminations, color = PrimaryWeapon)) +
+  geom_point()
+```
+
+```{r}
+# Remove weapons with few game counts
+Players <- Players %>% 
+  group_by(PrimaryWeapon) %>% 
+  filter(n() >= )
+
+Players %>% 
+  group_by(PrimaryWeapon) %>% 
+  summarise(N = n())
+```
+
+```{r}
+Players %>% 
+  ggplot(aes(x = Damage, y = Eliminations, color = PrimaryWeapon)) +
+  geom_point() +
+  facet_wrap( ~ GameType)
+```
+
+Let's make use of the date variable. We'll put it into a format that's useful, splitting it up by the month
+
+```{r}
+# Create Month variable
+Players <-
+  Players %>% 
+    mutate(Month = month(as.POSIXlt(Date, format = "%m/%d/%Y"))) %>% 
+  mutate(Month = month.name[Month])
+```
+
+### Random Forest Model
+
+```{r}
+set.seed(123)
+train_ind <- sample(1:nrow(Players), floor(0.8 * nrow(Players)))
+set.seed(NULL)
+
+Train <- Players[train_ind, ]
+Test <- Players[-train_ind, ]
+```
+
+
+```{r}
+#Build model using a seed
+set.seed(123)
+rf <- randomForest(as.factor(PrimaryWeapon) ~ Map1 + Map2 + Choice + Eliminations + Deaths + TotalXP + Score + Damage + Month, data = Train, 
+                    ntree = 500, mtry = 3, importance = TRUE)
+set.seed(NULL)
+
+#Obtain predicted probabilities - not need for confusion matrix but included to show we all get same probabilities with same seed
+pred_prob <- predict(rf, newdata = Test, type = "prob")
+
+#To create the confusion matrix, we need to determine which class (No or Yes) is more likely. Although we could define a threshold and compare probabilities as we have done in the past, things are more challenging if y has more than 2 classes. So, let R pick for us.
+pred_surv <- predict(rf, newdata = Test, type = "response")
+
+#Create confusion matrix
+table(pred_surv, Test$PrimaryWeapon)
+
+#Calculate accuracy
+mean(pred_surv == Test$PrimaryWeapon)
+
+rf$importance
+```
+
+
+
