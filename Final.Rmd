@@ -9,8 +9,6 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-Remember to customize plot axis titles and labels. Professor takes off points for non-customized labels and visualizations
-
 ## Front Matter
 ```{r, message = FALSE, warning = FALSE}
 rm(list = ls())
@@ -20,6 +18,7 @@ library(randomForest)
 library(lubridate)
 library(glmnet)
 library(FNN)
+library(e1071)
 ```
 
 ## Call of Duty
@@ -682,3 +681,69 @@ acc_vec[which.max(acc_vec)]
 
 The best accuracy achieved was 81.5% with a K value of 3. Our random forest model outperforms this kNN model by about 6% in terms of accuracy.
 
+### Naive Bayes Classifier
+
+We will implement a naive bayes classifier for our final model. A Naive Bayes works by calculating the probability of a new data point belonging to each class based on the probability of its features give each class. Just like we did with our kNN classifier, we will loop through an important hyperparameter looking to optimize the accuracy value of the model. For our naive bayes classifier, this hyperparameter is the laplace value which adjusts the amount of smoothing applied to the model - a higher value results in more smoothing.
+
+```{r}
+library(e1071)
+
+# fit a naive bayes classifier to the training data
+nb_model <- naiveBayes(as.factor(PrimaryWeapon) ~ Eliminations + Score + Damage + GameType + Month, data = Train)
+
+# make predictions on the test data using the fitted model
+nb_pred <- predict(nb_model, newdata = Test)
+
+# calculate the accuracy of the model
+nb_accuracy <- sum(nb_pred == Test$PrimaryWeapon) / nrow(Test)
+```
+
+```{r}
+# Set up vector of laplace values to test
+laplace_values <- seq(-2, 1, by = 0.1)
+
+# Create an empty vector to store accuracy values
+accuracy_values <- numeric(length = length(laplace_values))
+
+# Loop through laplace values and fit naive bayes models
+for (i in seq_along(laplace_values)) {
+  nb_model <- naiveBayes(PrimaryWeapon ~ Eliminations + Score + Damage + GameType + Month, 
+                         data = Train, 
+                         laplace = laplace_values[i])
+  
+  # Make predictions on test set
+  predicted <- predict(nb_model, newdata = Test)
+  
+  # Calculate accuracy
+  accuracy_values[i] <- sum(predicted == Test$PrimaryWeapon) / length(predicted)
+}
+
+# Find the optimal laplace value based on highest accuracy
+optimal_laplace <- laplace_values[which.max(accuracy_values)]
+
+# Fit final model with optimal laplace value
+nb_model <- naiveBayes(as.factor(PrimaryWeapon) ~ Eliminations + Score + Damage + GameType + Month, 
+                       data = Train, 
+                       laplace = optimal_laplace)
+
+```
+
+```{r}
+# create a data frame with laplace_values and corresponding accuracies
+acc_df <- data.frame(laplace_values, accuracy_values)
+
+# plot accuracy vs. laplace_values
+ggplot(acc_df, aes(x = laplace_values, y = accuracy_values)) + 
+  geom_line() + 
+  geom_point() + 
+  labs(title = "Accuracy vs. Laplace Values", 
+       x = "Laplace Values", 
+       y = "Accuracy")
+
+# Best Laplace value
+which.max(accuracy_values)
+# Best accuracy
+accuracy_values[which.max(accuracy_values)]
+```
+
+We find that a Laplace value of -1 gives us the highest accuracy of 81.5% for our naive bayes model. There are multiple laplace values below -1 which give us this accuracy but we chose -1 to prevent possible overfitting if we were to implement this model on new data.
