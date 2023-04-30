@@ -417,9 +417,18 @@ summary(model1)
 Which Primary Weapon is best in terms of Eliminations? (If we were given a player's stat line, can we know which weapon they used?)
 Can we predict weapon type based on several factors?
 
-To answer this research question, we will have to account for factors such as which game type because each types has different lengths . We will go by average eliminations for each weapon and account for factors such as game type which can have different lengths. We will have to perform some data cleaning initially to make sure each weapon is accounted for and does not have typos. We then will decide on a threshold of the number of games a weapon must have been used in to be considered, too few games will not be convincing enough. We will be removing partial matches from consideration since we are analyzing a counting statistic 'Eliminations'. 
+To answer this research question, we will have to account for factors such as which game type because each types has different lengths . We will go by average eliminations for each weapon and account for factors such as game type which can have different lengths. We will have to perform some data cleaning initially to make sure each weapon is accounted for and does not have typos. We then will decide on a threshold of the number of games a weapon must have been used in to be considered, too few games will not be convincing enough. We will be removing partial matches from consideration since we are analyzing a counting statistic 'Eliminations'. When comparing the different models, we must compare them on the same metric which will be accuracy. We will be using the same random seed of 123 throughout this model process to keep our results replicable and consistent throughout the models.
 
 ```{r}
+# Remove partial matches
+Players <-
+  Players %>% 
+  filter(FullPartial == "Full")
+```
+
+
+```{r}
+# Summarize count of games each weapon appeared in
 Players %>% 
   group_by(PrimaryWeapon) %>% 
   summarize(N = n())
@@ -510,7 +519,7 @@ Before we begin building our models, it would be beneficial to employ a feature 
 Weapons$PrimaryWeapon <- factor(Weapons$PrimaryWeapon)
 
 # Build LASSO model with most variables
-formula <- as.formula("PrimaryWeapon ~ Eliminations + Deaths + TotalXP + Score + Damage + Month + GameType + Map1 + Map2 + Choice + FullPartial + XPType + GameType")
+formula <- as.formula("PrimaryWeapon ~ Eliminations + Deaths + TotalXP + Score + Damage + Month + GameType + Map1 + Map2 + Choice + XPType + GameType")
 
 # Put data frame in form needed for glmnet
 Xmat <- model.matrix(formula, data = Weapons)
@@ -585,7 +594,8 @@ Weapons[ , xvars] <- scale(Weapons[ , xvars], center = TRUE, scale = TRUE)
 
 
 ```{r}
-set.seed(123)
+# Generate Train and Test sets
+set.seed(42)
 train_ind <- sample(1:nrow(Weapons), floor(0.8 * nrow(Weapons)))
 set.seed(NULL)
 
@@ -596,9 +606,11 @@ Test <- Weapons[-train_ind, ]
 
 ```{r}
 #Build model using a seed
-set.seed(123)
-rf <- randomForest(as.factor(PrimaryWeapon) ~ Eliminations + Score + Damage + GameType + Month, data = Train, 
-                    ntree = 500, mtry = 3, importance = TRUE)
+set.seed(42)
+rf <- randomForest(as.factor(PrimaryWeapon) ~ Eliminations + Score + Damage + GameType + Month, 
+                   data = Train, 
+                   ntree = 500, 
+                   importance = TRUE)
 set.seed(NULL)
 
 #Obtain predicted probabilities - not need for confusion matrix but included to show we all get same probabilities with same seed
@@ -614,27 +626,59 @@ table(pred_surv, Test$PrimaryWeapon)
 mean(pred_surv == Test$PrimaryWeapon)
 
 rf$importance
+
 plot(rf)
+
+varImpPlot(rf, n.var = 5)
 ```
 
-We achieve 90.8% accuracy based from our random forest model and see that 'Month' and 'Damage' are the most important variables for predicting 'PrimaryWeapon' based on the mean decrease in accuracy output of our model. We see that the error for our random forest model converges before 100 trees, showing that 500 trees aren't necessary. We can try and adjust the parameters of our random forest model to see if we can achieve a higher accuracy, but let's move onto another classiciation method first.
+We achieve 87.7% accuracy based from our random forest model and see that 'Month' and 'Damage' are the most important variables for predicting 'PrimaryWeapon' based on the mean decrease in accuracy and Gini. This makes inuitive sense because each gun can have different damage settings and the player can have phases in their experience where they use one gun for a certain period of time before moving on. We also see that the error for our random forest model converges before 100 trees, showing that 500 trees aren't necessary. We can try and adjust the parameters of our random forest model to see if we can achieve a higher accuracy, but let's move onto another classification method first.
 
 ### KNN Classification
 
+Our next classification method that we will implement is the k-Nearest Neighbors algorithm, which we covered in class. Since our data is already scaled and split into training and testing sets, we can jump right into the algorithm. We will also make sure to test the effectiveness of this model on the same statistic as our random forest model which was accuracy. However, we don't know which value of k gives us the highest accuracy. This is where we will implement a loop to find the optimal k value.
+
 ```{r}
-
-
-xvars <- c("Eliminations", "Deaths", "Score", "Damage")
+# Initialize storage vars
+maxK <- 75
+acc_vec <- rep(NA, maxK)
+actual <- Test$PrimaryWeapon  # actual values
+# Loop
+for (k in 1:maxK) {
+  
 #Build kNN classification model
 knn_res <- knn(train = Train[ , xvars, drop = FALSE],
                test = Test[ , xvars, drop = FALSE],
                cl = Train$PrimaryWeapon,
-               k = 3)
+               k = k)
 
 # calculate accuracy of kNN model
-actual <- Test$PrimaryWeapon  # actual values
 predicted <- knn_res  # predicted values
-accuracy <- sum(actual == predicted) / length(actual)  # calculate accuracy
-accuracy
+# Convert factor levels to match those of Test$PrimaryWeapon
+predicted <- factor(predicted, levels = levels(Test$PrimaryWeapon))
+
+# Calculate and store accuracy
+acc_vec[k] <- sum(predicted == Test$PrimaryWeapon) / length(Test$PrimaryWeapon)  # calculate accuracy
+}
 ```
+
+With our accuracies stored in acc_vec, we can plot the accuracies and find the optimal k value.
+
+```{r}
+# To use ggplot, create a data frame
+temp_df <- data.frame(k = 1:maxK, accuracy = acc_vec)
+
+# Create plot
+ggplot(temp_df, aes(x = k, y = acc_vec)) +
+  geom_line() +
+  labs(x = "Number of Nearest Neighbors (k)",
+       y = "Accuracy")
+
+# Best K value
+which.max(acc_vec)
+# Best accuracy
+acc_vec[which.max(acc_vec)]
+```
+
+The best accuracy achieved was 81.5% with a K value of 3. Our random forest model outperforms this kNN model by about 6% in terms of accuracy.
 
