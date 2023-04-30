@@ -460,11 +460,11 @@ Players %>%
 
 ```{r}
 # Remove weapons with few game counts
-Players <- Players %>% 
+Weapons <- Players %>% 
   group_by(PrimaryWeapon) %>% 
-  filter(n() >= )
+  filter(n() >= 35)
 
-Players %>% 
+Weapons %>% 
   group_by(PrimaryWeapon) %>% 
   summarise(N = n())
 ```
@@ -480,8 +480,8 @@ Let's make use of the date variable. We'll put it into a format that's useful, s
 
 ```{r}
 # Create Month variable
-Players <-
-  Players %>% 
+Weapons <-
+  Weapons %>% 
     mutate(Month = month(as.POSIXlt(Date, format = "%m/%d/%Y"))) %>% 
   mutate(Month = month.name[Month])
 ```
@@ -490,11 +490,11 @@ Players <-
 
 ```{r}
 set.seed(123)
-train_ind <- sample(1:nrow(Players), floor(0.8 * nrow(Players)))
+train_ind <- sample(1:nrow(Weapons), floor(0.8 * nrow(Weapons)))
 set.seed(NULL)
 
-Train <- Players[train_ind, ]
-Test <- Players[-train_ind, ]
+Train <- Weapons[train_ind, ]
+Test <- Weapons[-train_ind, ]
 ```
 
 
