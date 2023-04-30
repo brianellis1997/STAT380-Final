@@ -19,6 +19,7 @@ library(tidyverse)
 library(randomForest)
 library(lubridate)
 library(glmnet)
+library(FNN)
 ```
 
 ## Call of Duty
@@ -227,7 +228,7 @@ for (i in 1:length(Vote_split)) {
   Second_vote[i] <- (Vote_split[[i]][2])
 }
 
-print(tail(First_vote, 200))
+print(First_vote[500:600])
 print(which(First_vote == "4 o 0"))
 print(which(First_vote == "2 o 0"))
 print(length(First_vote))
@@ -257,7 +258,7 @@ for (i in 1:length(Vote_split)) {
   Second_vote[i] <- (Vote_split[[i]][2])
 }
 
-print(tail(First_vote, 200))
+print(First_vote[500:600])
 print(which(First_vote == "4 o 0"))
 print(which(First_vote == "2 o 0"))
 print(length(First_vote))
@@ -446,18 +447,8 @@ Players %>%
   summarize(N = n())
 ```
 
-```{r}
-Players %>% 
-  ggplot(aes(x = PrimaryWeapon, y = Eliminations)) +
-  geom_boxplot() +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
-```
+Now we will select only the top 5 weapons which appear the most in our dataset to reduce the number of classes for our classifcation models.
 
-```{r}
-Players %>% 
-  ggplot(aes(x = Damage, y = Eliminations, color = PrimaryWeapon)) +
-  geom_point()
-```
 
 ```{r}
 # Remove weapons with few game counts
@@ -471,7 +462,14 @@ Weapons %>%
 ```
 
 ```{r}
-Players %>% 
+Weapons %>% 
+  ggplot(aes(x = PrimaryWeapon, y = Eliminations)) +
+  geom_boxplot() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+```
+
+```{r}
+Weapons %>% 
   ggplot(aes(x = Damage, y = Eliminations, color = PrimaryWeapon)) +
   geom_point() +
   facet_wrap( ~ GameType)
@@ -485,106 +483,34 @@ Weapons <-
   Weapons %>% 
     mutate(Month = month(as.POSIXlt(Date, format = "%m/%d/%Y"))) %>% 
   mutate(Month = month.name[Month])
+
+# Convert to continuous variable
+Weapons$Month <- as.integer(factor(Weapons$Month, levels = month.name))
 ```
 
-### Random Forest Model
+Now we can plot the changes over time for our weapons. 
 
 ```{r}
-set.seed(123)
-train_ind <- sample(1:nrow(Weapons), floor(0.8 * nrow(Weapons)))
-set.seed(NULL)
-
-Train <- Weapons[train_ind, ]
-Test <- Weapons[-train_ind, ]
-```
-
-
-```{r}
-#Build model using a seed
-set.seed(123)
-rf <- randomForest(as.factor(PrimaryWeapon) ~ Map1 + Map2 + Choice + Eliminations + Deaths + TotalXP + Score + Damage + Month, data = Train, 
-                    ntree = 500, mtry = 3, importance = TRUE)
-set.seed(NULL)
-
-#Obtain predicted probabilities - not need for confusion matrix but included to show we all get same probabilities with same seed
-pred_prob <- predict(rf, newdata = Test, type = "prob")
-
-#To create the confusion matrix, we need to determine which class (No or Yes) is more likely. Although we could define a threshold and compare probabilities as we have done in the past, things are more challenging if y has more than 2 classes. So, let R pick for us.
-pred_surv <- predict(rf, newdata = Test, type = "response")
-
-#Create confusion matrix
-table(pred_surv, Test$PrimaryWeapon)
-
-#Calculate accuracy
-mean(pred_surv == Test$PrimaryWeapon)
-
-rf$importance
-```
-
-We see that M16 and MP5 are very similar and are often misclassified for each other by our random forest model. We can choose to eliminate one or the other or we can try and find a variable to include in our model that is able to separate the two.
-
-```{r}
-Weapons %>% 
-  filter(PrimaryWeapon == "M16" | PrimaryWeapon == "MP5") %>% 
-  ggplot(aes(x = Eliminations, y = Damage, color = PrimaryWeapon)) +
-  geom_point()
-```
-
-```{r}
-Weapons %>% 
-  filter(PrimaryWeapon == "M16" | PrimaryWeapon == "MP5") %>% 
-  ggplot(aes(x = Eliminations, y = Damage, color = PrimaryWeapon)) +
+Weapons %>%
+  group_by(Month, PrimaryWeapon) %>%
+  summarise(mean_eliminations = mean(Eliminations)) %>%
+  ggplot(aes(x = Month, y = mean_eliminations, color = PrimaryWeapon)) +
+  geom_line(aes(group = PrimaryWeapon)) +
   geom_point() +
-  facet_wrap(~ Month)
+  labs(x = "Month", y = "Eliminations", color = "Primary Weapon") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
 ```
 
-'Month' seems to be the primary separator in terms of these two weapons.
+### Feature Selection
 
-```{r}
-Weapons %>% 
-  filter(PrimaryWeapon == "M16" | PrimaryWeapon == "MP5") %>% 
-  group_by(PrimaryWeapon, GameType) %>% 
-  summarize(
-    mean_Eliminations = mean(Eliminations),
-    mean_Death = mean(Deaths),
-    mean_Score = mean(Score),
-    mean_XP = mean(TotalXP),
-    Count = n()
-  )
-```
-
-Here we see that the weapon MP5 was only chosen in TDM game types. Including this variable may help our model differentiate between the two weapons. We can also remove previous variables included in our model that made seemingly no difference, i.e., Map1, Map2, and Choice.
-
-```{r}
-# New model with GameType included
-set.seed(123)
-rf2 <- randomForest(as.factor(PrimaryWeapon) ~ Eliminations + Deaths + TotalXP + Score + Damage + Month + GameType, data = Train, 
-                    ntree = 500, mtry = 3, importance = TRUE)
-set.seed(NULL)
-
-#Obtain predicted probabilities - not need for confusion matrix but included to show we all get same probabilities with same seed
-pred_prob2 <- predict(rf2, newdata = Test, type = "prob")
-
-#To create the confusion matrix, we need to determine which class (No or Yes) is more likely. Although we could define a threshold and compare probabilities as we have done in the past, things are more challenging if y has more than 2 classes. So, let R pick for us.
-pred_surv2 <- predict(rf2, newdata = Test, type = "response")
-
-#Create confusion matrix
-table(pred_surv2, Test$PrimaryWeapon)
-
-#Calculate accuracy
-mean(pred_surv2 == Test$PrimaryWeapon)
-
-rf2$importance
-```
-
-We can use a feature selection selection model to give us an idea of which features are most important. Let's build a LASSO model to help us identify those variables most important to predicting PrimaryWeapon. 
+Before we begin building our models, it would be beneficial to employ a feature selection model to help us determine which variables are most important in classifying our PrimaryWeapons. Let's build a LASSO model to help us identify those variables most important to predicting PrimaryWeapon. 
 
 ```{r}
 # Create factor for PrimaryWeapon
 Weapons$PrimaryWeapon <- factor(Weapons$PrimaryWeapon)
 
-# Build LASSO model
-formula <- as.formula("PrimaryWeapon ~ Eliminations + Deaths + TotalXP + Score + Damage + Month + GameType")
+# Build LASSO model with most variables
+formula <- as.formula("PrimaryWeapon ~ Eliminations + Deaths + TotalXP + Score + Damage + Month + GameType + Map1 + Map2 + Choice + FullPartial + XPType + GameType")
 
 # Put data frame in form needed for glmnet
 Xmat <- model.matrix(formula, data = Weapons)
@@ -612,7 +538,7 @@ bestlam1
 lasso.coef1
 ```
 
-We see that the month variable dominates the model, while interestingly enough 'Eliminations' and 'Deaths' are discarded by this LASSO model telling us that they may not be that important. Let's try the model again but without the 'Month' variable.
+We see that the month variable dominates the model, while interestingly enough 'Eliminations' and 'Deaths' are discarded by this LASSO model telling us that they may not be that important. Let's try the model again but without the 'Month' or Map variables.
 
 ```{r}
 # Build LASSO model
@@ -639,21 +565,23 @@ bestlam1
 lasso.coef1
 ```
 
-This may be too much regularization as only two variables are kept. Let's see which variables the mse lambda leaves us.
+We can see that the variables most important for predicting 'PrimaryWeapon' are Month, Eliminations, Score, Damage, and GameType based on this LASSO model.
+
+
+### Random Forest Model
 
 ```{r}
-bestlam2 <- cv.out$lambda.min
-#Predict the responses for the test set (use for MSE/RMSE calc)
-lasso.pred2 <- predict(cv.out , s = bestlam2,
-                      newx = Xmat)
-#Find the coefficients
-lasso.coef2 <- predict(cv.out , s = bestlam2,
-                      type = "coefficients")
-bestlam2
-lasso.coef2
-```
+# Create indicator variables for GameType and Month
+Weapons <- Weapons %>%
+  mutate(Month = factor(Month, levels = unique(Month)),
+         GameType = factor(GameType, levels = unique(GameType))) %>% 
+  mutate(Month_dummy = as.numeric(Month),
+         Type_dummy = as.numeric(GameType)) # convert Month to numeric values
 
-We'll remove 'Damage' from our RandomForest model.
+# Scale x variables
+xvars <- c("Month_dummy", "Type_dummy", "Eliminations", "Score", "Damage")
+Weapons[ , xvars] <- scale(Weapons[ , xvars], center = TRUE, scale = TRUE)
+```
 
 
 ```{r}
@@ -665,42 +593,36 @@ Train <- Weapons[train_ind, ]
 Test <- Weapons[-train_ind, ]
 ```
 
+
 ```{r}
-# New model
+#Build model using a seed
 set.seed(123)
-rf3 <- randomForest(PrimaryWeapon ~ Month + Damage + Eliminations + Score + GameType + TotalXP + Deaths + Map1 + Map2 + Choice + FullPartial + XPType, data = Train, 
-                    ntree = 500, mtry = 10, importance = TRUE)
+rf <- randomForest(as.factor(PrimaryWeapon) ~ Eliminations + Score + Damage + GameType + Month, data = Train, 
+                    ntree = 500, mtry = 3, importance = TRUE)
 set.seed(NULL)
 
 #Obtain predicted probabilities - not need for confusion matrix but included to show we all get same probabilities with same seed
-pred_prob3 <- predict(rf3, newdata = Test, type = "prob")
+pred_prob <- predict(rf, newdata = Test, type = "prob")
 
 #To create the confusion matrix, we need to determine which class (No or Yes) is more likely. Although we could define a threshold and compare probabilities as we have done in the past, things are more challenging if y has more than 2 classes. So, let R pick for us.
-pred_surv3 <- predict(rf3, newdata = Test, type = "response")
+pred_surv <- predict(rf, newdata = Test, type = "response")
 
 #Create confusion matrix
-table(pred_surv3, Test$PrimaryWeapon)
+table(pred_surv, Test$PrimaryWeapon)
 
 #Calculate accuracy
-mean(pred_surv3 == Test$PrimaryWeapon)
+mean(pred_surv == Test$PrimaryWeapon)
 
-rf3$importance
+rf$importance
+plot(rf)
 ```
 
-```{r}
-Weapons <- Players %>% 
-  group_by(PrimaryWeapon) %>% 
-  filter(n() >= 30)
-
-Weapons %>% 
-  group_by(PrimaryWeapon) %>% 
-  summarise(N = n())
-```
+We achieve 90.8% accuracy based from our random forest model and see that 'Month' and 'Damage' are the most important variables for predicting 'PrimaryWeapon' based on the mean decrease in accuracy output of our model. We see that the error for our random forest model converges before 100 trees, showing that 500 trees aren't necessary. We can try and adjust the parameters of our random forest model to see if we can achieve a higher accuracy, but let's move onto another classiciation method first.
 
 ### KNN Classification
 
 ```{r}
-library(FNN)
+
 
 xvars <- c("Eliminations", "Deaths", "Score", "Damage")
 #Build kNN classification model
