@@ -6,11 +6,11 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, warning = F, message = F)
 ```
 
 ## Front Matter
-```{r, message = FALSE, warning = FALSE}
+```{r}
 rm(list = ls())
 #Add libraries as needed
 library(tidyverse)
@@ -73,7 +73,7 @@ Using this join query, we can see there are multiple misspellings, added spaces,
 
 ```{r}
 # Choice Data Cleaning
-# remove NAs from Choice since there are only 2
+# remove NAs from Choice, Map1, and Map2
 Players <- Players %>% 
   drop_na(Choice) %>%  
   drop_na(Map1) %>% 
@@ -117,7 +117,7 @@ Maps %>%
   summarize(Count = n())
 ```
 
-Since there are new typos, we just need to adjust our misspellings list to account for these. Note, we use the '\\b' encasing to denote we want to only replace the value when it matches exactly that spelling.
+Since there are new typos, we just need to adjust our misspellings list to account for these. Note, we use the '\\\b' encasing to denote we want to only replace the value when it matches exactly that spelling.
 
 ```{r}
 # Map1 Data Cleaning
@@ -200,12 +200,8 @@ Now we need to work with the 'MapVote' variable and identify when a tie takes pl
 ```{r}
 # Remove NAs from Mapvote
 Map_vote <- Players$MapVote
-#Map_vote <- na.omit(Map_vote)
 # Split Mapvote
 Vote_split <- strsplit(Map_vote, "to")
-
-# Remove NA values
-# Vote_split <- na.omit(Vote_split) <- Don't know if this is necessary
 
 # Initialize storage
 First_vote <- rep(NA, length(Vote_split))
@@ -283,10 +279,12 @@ Players <-
   Players %>% 
   mutate(Draw = Draw)
 
-head(Players)
+Players %>% 
+  select(MapVote, Draw) %>% 
+  head()
 ```
 
-After adding the Draw vector, we see it correctly indicates a 1 in the 4th row where there is a draw in the MapVote column.
+After adding the Draw vector, we see it correctly indicates a 1 in the 4th row where there is a draw in the MapVote column. Now that we have all our variables and data clean, we can perform the calculations:
 
 ```{r}
 # First we summarize the totals from Map1 and Map2 and join them together
@@ -315,7 +313,7 @@ MapVoteWin
 
 ```{r}
 MapVoteWin %>% 
-  select(Map, Total_Count, Total_Choice, Total_Draw, Real_Win, Real_Loss, Adjusted_Choice_Count, Prop_Choice, Adjusted_Prop_Choice) %>% 
+  select(Map, Total_Count, Total_Choice, Adjusted_Choice_Count, Prop_Choice, Adjusted_Prop_Choice) %>% 
   arrange(desc(Adjusted_Prop_Choice))
 ```
 
@@ -399,7 +397,9 @@ summary(model1)
 
 Our Research Question: Can we accurately predict weapon type based on several factors?
 
-We will have to perform some data cleaning initially to make sure each weapon is accounted for and does not have typos. We then will decide on a threshold of the number of games a weapon must have been used in to be considered, too few games will not be convincing enough. We will be removing partial matches from consideration to keep each observation independent and identically distributed. We will also create a new date variable, most likely around months, which will give us information as to whether the weapons are more prevelant during certain time periods. After this data cleaning process, we will begin feature seleciton for our models. We will probably build a LASSO feature selection model which can help us determine which features are most important for predicting 'PrimaryWeapon'. When comparing the different models, we must compare them on the same metric which we have determined will be accuracy. We will be using the same random seed of 123 throughout this model process to keep our results replicable and consistent throughout the models.
+We will have to perform some data cleaning initially to make sure each weapon is accounted for and does not have typos. We then will decide on a threshold of the number of games a weapon must have been used in to be considered, too few games will not be convincing enough. We will be removing partial matches from consideration to keep each observation independent and identically distributed. We will also create a new date variable, most likely around months, which will give us information as to whether the weapons are more prevelant during certain time periods. After this data cleaning process, we will begin feature selection for our models. We will probably build a LASSO feature selection model which can help us determine which features are most important for predicting 'PrimaryWeapon'. When comparing the different models, we must compare them on the same metric which we have determined will be accuracy. We will be using the same random seed of 123 throughout this model process to keep our results replicable and consistent throughout the models. The three models we will be implementing are random forest, kNN classification, and Naive Bayes.
+
+We'll begin by cleaning our data, doing some initial visualizations to explore the relationship between possible features and our target 'PrimaryWeapon', and creating a new date variable.
 
 ```{r}
 # Remove partial matches
@@ -438,8 +438,7 @@ Players %>%
   summarize(N = n())
 ```
 
-Now we will select only the top 5 weapons which appear the most in our dataset to reduce the number of classes for our classifcation models.
-
+Now we will select only the weapons which appear in more than 50 games to reduce the number of classes for our classifcation models.
 
 ```{r}
 # Remove weapons with few game counts
@@ -452,7 +451,7 @@ Weapons %>%
   summarise(N = n())
 ```
 
-Our main intution about these weapons is that they should differ in terms of 'Eliminations' and 'Damage'. Let's see if our intuition is correct with some visualzations:
+We see that there are 5 weapons which were used in 50 games or more, these will be the main classes of weapons which we will try and predict with our models. Our main intuition about these weapons is that they should differ in terms of 'Eliminations' and 'Damage'. Let's see if our intuition is correct with some visualzations:
 
 ```{r}
 # Visualzing Eliminations for each Weapon
@@ -625,14 +624,14 @@ set.seed(NULL)
 #Obtain predicted probabilities - not need for confusion matrix but included to show we all get same probabilities with same seed
 pred_prob <- predict(rf, newdata = Test, type = "prob")
 
-#To create the confusion matrix, we need to determine which class (No or Yes) is more likely. Although we could define a threshold and compare probabilities as we have done in the past, things are more challenging if y has more than 2 classes. So, let R pick for us.
-pred_surv <- predict(rf, newdata = Test, type = "response")
+# Get predictions
+pred_weapon <- predict(rf, newdata = Test, type = "response")
 
-#Create confusion matrix
-table(pred_surv, Test$PrimaryWeapon)
+# Calculate accuracy
+mean(pred_weapon == Test$PrimaryWeapon)
 
-#Calculate accuracy
-mean(pred_surv == Test$PrimaryWeapon)
+# Parameters and Confusion matrix
+print(rf)
 
 rf$importance
 
@@ -641,7 +640,7 @@ plot(rf)
 varImpPlot(rf, n.var = 5)
 ```
 
-We achieve 86.1% accuracy based from our random forest model and see that 'Month' and 'Damage' are the most important variables for predicting 'PrimaryWeapon' based on the mean decrease in accuracy and Gini. This makes intuitive sense because each gun can have different damage settings and the player can have phases in their experience where they use one gun for a certain period of time before moving on. We also see that the error for our random forest model converges before 100 trees, showing that 500 trees aren't necessary. We can try and adjust the parameters of our random forest model to see if we can achieve a higher accuracy, but let's move onto another classification method first.
+We achieve 86.2% accuracy based from our random forest model and see that 'Month' and 'Damage' are the most important variables for predicting 'PrimaryWeapon' based on the mean decrease in accuracy and Gini. This makes intuitive sense because each gun can have different damage settings and the player can have phases in their experience where they use one gun for a certain period of time before moving on. We also see that the error for our random forest model converges before 100 trees, showing that 500 trees aren't necessary. We can try and adjust the parameters of our random forest model to see if we can achieve a higher accuracy, but let's move onto another classification method first.
 
 ### KNN Classification
 
@@ -753,7 +752,7 @@ accuracy_values[which.max(accuracy_values)]
 
 We find that a Laplace value of -1 gives us the highest accuracy of 81.5% for our naive bayes model. There are multiple laplace values below -1 which give us this accuracy but we chose -1 to prevent possible overfitting if we were to implement this model on new data.
 
-After looking at 3 different classification methods, our random forest model produced the highest accuracy with 86.1%. Now that we have a general idea of which model performs better, we can optimize our chosen model which in our case is the random forest. We can loop through the hyperparameters of the model and choose the values which give us the best accuracy on our model. The hyperparameters that we will be looking to optimize in our random forest model are the number of trees (ntree) and the number of variables random sampled as candidates in each split (mtry).
+After looking at 3 different classification methods, our random forest model produced the highest accuracy with 86.2%. Now that we have a general idea of which model performs better, we can optimize our chosen model which in our case is the random forest. We can loop through the hyperparameters of the model and choose the values which give us the best accuracy on our model. The hyperparameters that we will be looking to optimize in our random forest model are the number of trees (ntree) and the number of variables random sampled as candidates in each split (mtry).
 
 ```{r}
 set.seed(42)
@@ -798,11 +797,17 @@ Final_rf_model <- randomForest(as.factor(PrimaryWeapon) ~ Eliminations + Score +
                                importance = TRUE)
 set.seed(NULL)
 
+# Get predictions
+pred_weapon_final <- predict(Final_rf_model, newdata = Test, type = "response")
+
+# Calculate accuracy
+mean(pred_weapon_final == Test$PrimaryWeapon)
+
+# Best parameters and confusion matrix
 print(Final_rf_model)
-print(best_accuracy)
 ```
 
-We see that the best accuracy we can achieve by maximizing the hyperparameters in our random forest model is 87.7%, showing that with the optimal parameters we increased our model accuracy by 1.6%. The optimal parameters for our final random forest model are 2 variables at each split and 50 trees.
+We see that the best accuracy we can achieve by maximizing the hyperparameters in our random forest model is 87.7%, showing that with the optimal parameters we increased our model accuracy by 1.5%. The optimal parameters for our final random forest model are 2 variables at each split and 50 trees.
 
 ```{r}
 Final_rf_model$importance
