@@ -397,9 +397,9 @@ summary(model1)
 
 ## Task 3
 
-Can we accurately predict weapon type based on several factors?
+Our Research Question: Can we accurately predict weapon type based on several factors?
 
-To answer this research question, we will have to account for factors such as which game type because each types has different lengths . We will go by average eliminations for each weapon and account for factors such as game type which can have different lengths. We will have to perform some data cleaning initially to make sure each weapon is accounted for and does not have typos. We then will decide on a threshold of the number of games a weapon must have been used in to be considered, too few games will not be convincing enough. We will be removing partial matches from consideration since we are analyzing a counting statistic 'Eliminations'. When comparing the different models, we must compare them on the same metric which will be accuracy. We will be using the same random seed of 123 throughout this model process to keep our results replicable and consistent throughout the models.
+We will have to perform some data cleaning initially to make sure each weapon is accounted for and does not have typos. We then will decide on a threshold of the number of games a weapon must have been used in to be considered, too few games will not be convincing enough. We will be removing partial matches from consideration to keep each observation independent and identically distributed. We will also create a new date variable, most likely around months, which will give us information as to whether the weapons are more prevelant during certain time periods. After this data cleaning process, we will begin feature seleciton for our models. We will probably build a LASSO feature selection model which can help us determine which features are most important for predicting 'PrimaryWeapon'. When comparing the different models, we must compare them on the same metric which we have determined will be accuracy. We will be using the same random seed of 123 throughout this model process to keep our results replicable and consistent throughout the models.
 
 ```{r}
 # Remove partial matches
@@ -416,7 +416,7 @@ Players %>%
   summarize(N = n())
 ```
 
-We notice that there are some typos in a couple guns and multiple NA values which we must clean up before moving forward
+We notice that there are some typos in a couple guns and multiple NA values which we must clean up before moving forward.
 
 ```{r}
 # Drop NA values
@@ -452,21 +452,41 @@ Weapons %>%
   summarise(N = n())
 ```
 
+Our main intution about these weapons is that they should differ in terms of 'Eliminations' and 'Damage'. Let's see if our intuition is correct with some visualzations:
+
 ```{r}
+# Visualzing Eliminations for each Weapon
 Weapons %>% 
   ggplot(aes(x = PrimaryWeapon, y = Eliminations)) +
   geom_boxplot() +
+  labs(title = "Eliminations by Primary Weapon",
+       x = "Primary Weapon",
+       y = "Eliminations") +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
 ```
+
+```{r}
+# Visualzing Damage for each Weapon
+Weapons %>% 
+  ggplot(aes(x = PrimaryWeapon, y = Damage)) +
+  geom_boxplot() +
+  labs(title = "Damage by Primary Weapon",
+       x = "Primary Weapon",
+       y = "Damage")
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+```
+
+While 'Eliminations' doesn't give us a lot of information, 'Damage' seems like the variable which has a higher variance amongst the different weapons.
 
 ```{r}
 Weapons %>% 
   ggplot(aes(x = Damage, y = Eliminations, color = PrimaryWeapon)) +
   geom_point() +
+  labs(title = "Eliminations and Damage by Game Type") +
   facet_wrap( ~ GameType)
 ```
 
-Let's make use of the date variable. We'll put it into a format that's useful, splitting it up by the month
+Let's make use of the date variable. We'll put it into a format that's useful, splitting it up by the month.
 
 ```{r}
 # Create Month variable
@@ -479,7 +499,7 @@ Weapons <-
 Weapons$Month <- as.integer(factor(Weapons$Month, levels = month.name))
 ```
 
-Now we can plot the changes over time for our weapons. 
+Now we can plot the changes over time for our weapons.
 
 ```{r}
 Weapons %>%
@@ -489,12 +509,15 @@ Weapons %>%
   geom_line(aes(group = PrimaryWeapon)) +
   geom_point() +
   labs(x = "Month", y = "Eliminations", color = "Primary Weapon") +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, size = 8)) +
+  scale_x_discrete(limits = c("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"))
 ```
+
+We see that each weapon isn't present constantly over the months, showing that the players switch weapons constantly over time. This should make our new variable 'Month' important towards predicting weapon type.
 
 ### Feature Selection
 
-Before we begin building our models, it would be beneficial to employ a feature selection model to help us determine which variables are most important in classifying our PrimaryWeapons. Let's build a LASSO model to help us identify those variables most important to predicting PrimaryWeapon. 
+Before we begin building our models, it would be beneficial to employ a feature selection model to help us determine which variables are most important in classifying our 'PrimaryWeapons'. Let's build a LASSO model to help us identify those variables most important to predicting 'PrimaryWeapon'. 
 
 ```{r}
 # Create factor for PrimaryWeapon
@@ -529,7 +552,7 @@ bestlam1
 lasso.coef1
 ```
 
-We see that the month variable dominates the model, while interestingly enough 'Eliminations' and 'Deaths' are discarded by this LASSO model telling us that they may not be that important. Let's try the model again but without the 'Month' or Map variables.
+We see that the 'Month' variable dominates the model, while interestingly enough 'Eliminations' and 'Deaths' are discarded by this LASSO model telling us that they may not be that important. Let's try the model again but without the 'Month' or Map variables.
 
 ```{r}
 # Build LASSO model
@@ -556,10 +579,13 @@ bestlam1
 lasso.coef1
 ```
 
-We can see that the variables most important for predicting 'PrimaryWeapon' are Month, Eliminations, Score, Damage, and GameType based on this LASSO model.
+We can see that the variables most important for predicting 'PrimaryWeapon' are 'Month', 'Eliminations', 'Score', 'Damage', and 'GameType' based on this LASSO model.
 
+Now that we have determined the most important features, we will begin building our models on these variables.
 
 ### Random Forest Model
+
+The first model we will implement will be a random forest model which is one of the techniques we learned in class. The approach of a random forest model relies on randomness of multiple decision trees and combines the predictions of all the trees to arrive at the most accurate prediction. The inclusion of this randomness in each tree helps to reduce overfitting and ensure each tree is different.
 
 ```{r}
 # Create indicator variables for GameType and Month
@@ -592,6 +618,7 @@ set.seed(42)
 rf <- randomForest(as.factor(PrimaryWeapon) ~ Eliminations + Score + Damage + GameType + Month, 
                    data = Train, 
                    ntree = 500, 
+                   mtry = 5,
                    importance = TRUE)
 set.seed(NULL)
 
@@ -614,11 +641,11 @@ plot(rf)
 varImpPlot(rf, n.var = 5)
 ```
 
-We achieve 87.7% accuracy based from our random forest model and see that 'Month' and 'Damage' are the most important variables for predicting 'PrimaryWeapon' based on the mean decrease in accuracy and Gini. This makes inuitive sense because each gun can have different damage settings and the player can have phases in their experience where they use one gun for a certain period of time before moving on. We also see that the error for our random forest model converges before 100 trees, showing that 500 trees aren't necessary. We can try and adjust the parameters of our random forest model to see if we can achieve a higher accuracy, but let's move onto another classification method first.
+We achieve 86.1% accuracy based from our random forest model and see that 'Month' and 'Damage' are the most important variables for predicting 'PrimaryWeapon' based on the mean decrease in accuracy and Gini. This makes intuitive sense because each gun can have different damage settings and the player can have phases in their experience where they use one gun for a certain period of time before moving on. We also see that the error for our random forest model converges before 100 trees, showing that 500 trees aren't necessary. We can try and adjust the parameters of our random forest model to see if we can achieve a higher accuracy, but let's move onto another classification method first.
 
 ### KNN Classification
 
-Our next classification method that we will implement is the k-Nearest Neighbors algorithm, which we covered in class. Since our data is already scaled and split into training and testing sets, we can jump right into the algorithm. We will also make sure to test the effectiveness of this model on the same statistic as our random forest model which was accuracy. However, we don't know which value of k gives us the highest accuracy. This is where we will implement a loop to find the optimal k value.
+Our next classification method that we will implement is the k-Nearest Neighbors algorithm, which we covered in class. The basis behind the k-Nearest Neighbors algorithm is using Euclidean distance, or any other distance calculation, to classify new data to the class that is most common among the k nearest neighbors. Since our data is already scaled and split into training and testing sets, we can jump right into the algorithm. We will also make sure to test the effectiveness of this model on the same statistic as our random forest model which was accuracy. However, we don't know which value of k gives us the highest accuracy. This is where we will implement a loop to find the optimal k value.
 
 ```{r}
 # Initialize storage vars
@@ -644,7 +671,7 @@ acc_vec[k] <- sum(predicted == Test$PrimaryWeapon) / length(Test$PrimaryWeapon) 
 }
 ```
 
-With our accuracies stored in acc_vec, we can plot the accuracies and find the optimal k value.
+With our accuracy stored in acc_vec, we can plot the accuracy and find the optimal k value.
 
 ```{r}
 # To use ggplot, create a data frame
@@ -662,15 +689,13 @@ which.max(acc_vec)
 acc_vec[which.max(acc_vec)]
 ```
 
-The best accuracy achieved was 81.5% with a K value of 3. Our random forest model outperforms this kNN model by about 6% in terms of accuracy.
+The best accuracy achieved was 81.5% with a K value of 3. Our random forest model outperforms this kNN model by about 5% in terms of accuracy.
 
 ### Naive Bayes Classifier
 
-We will implement a naive bayes classifier for our final model. A Naive Bayes works by calculating the probability of a new data point belonging to each class based on the probability of its features give each class. Just like we did with our kNN classifier, we will loop through an important hyperparameter looking to optimize the accuracy value of the model. For our naive bayes classifier, this hyperparameter is the laplace value which adjusts the amount of smoothing applied to the model - a higher value results in more smoothing.
+We will implement a naive bayes classifier for our final model. A Naive Bayes works by calculating the probability of a new data point belonging to each class based on the probability of its features given each class. Just like we did with our kNN classifier, we will loop through an important hyperparameter looking to optimize the accuracy value of the model. For our naive bayes classifier, this hyperparameter is the laplace value which adjusts the amount of smoothing applied to the model - a higher value results in more smoothing.
 
 ```{r}
-library(e1071)
-
 # fit a naive bayes classifier to the training data
 nb_model <- naiveBayes(as.factor(PrimaryWeapon) ~ Eliminations + Score + Damage + GameType + Month, data = Train)
 
@@ -708,7 +733,6 @@ optimal_laplace <- laplace_values[which.max(accuracy_values)]
 nb_model <- naiveBayes(as.factor(PrimaryWeapon) ~ Eliminations + Score + Damage + GameType + Month, 
                        data = Train, 
                        laplace = optimal_laplace)
-
 ```
 
 ```{r}
@@ -723,10 +747,70 @@ ggplot(acc_df, aes(x = laplace_values, y = accuracy_values)) +
        x = "Laplace Values", 
        y = "Accuracy")
 
-# Best Laplace value
-which.max(accuracy_values)
 # Best accuracy
 accuracy_values[which.max(accuracy_values)]
 ```
 
 We find that a Laplace value of -1 gives us the highest accuracy of 81.5% for our naive bayes model. There are multiple laplace values below -1 which give us this accuracy but we chose -1 to prevent possible overfitting if we were to implement this model on new data.
+
+After looking at 3 different classification methods, our random forest model produced the highest accuracy with 86.1%. Now that we have a general idea of which model performs better, we can optimize our chosen model which in our case is the random forest. We can loop through the hyperparameters of the model and choose the values which give us the best accuracy on our model. The hyperparameters that we will be looking to optimize in our random forest model are the number of trees (ntree) and the number of variables random sampled as candidates in each split (mtry).
+
+```{r}
+set.seed(42)
+
+# Define ranges of parameter values
+ntrees_range <- seq(50, 200, 50)
+mtry_range <- seq(1, 5, 1)
+
+# Initialize variables to store best parameter values and accuracy
+best_ntrees <- 0
+best_mtry <- 0
+best_accuracy <- 0
+
+# Nested for loop to iterate over parameter values
+for (ntrees in ntrees_range) {
+  for (mtry in mtry_range) {
+    
+    # Fit model using current parameter values
+    looped_rf <- randomForest(PrimaryWeapon ~ Eliminations + Score + Damage + GameType + Month, 
+                             data = Train, 
+                             ntree = ntrees, 
+                             mtry = mtry, 
+                             importance = TRUE)
+    
+    # Calculate accuracy of model
+    accuracy <- sum(predict(looped_rf, Test) == Test$PrimaryWeapon) / nrow(Test)
+    
+    # Check if current accuracy is better than previous best accuracy
+    if (accuracy > best_accuracy) {
+      best_accuracy <- accuracy
+      best_ntrees <- ntrees
+      best_mtry <- mtry
+    }
+  }
+}
+
+# Fit model with best parameter values and print results
+Final_rf_model <- randomForest(as.factor(PrimaryWeapon) ~ Eliminations + Score + Damage + GameType + Month, 
+                               data = Train, 
+                               ntree = best_ntrees, 
+                               mtry = best_mtry, 
+                               importance = TRUE)
+set.seed(NULL)
+
+print(Final_rf_model)
+print(best_accuracy)
+```
+
+We see that the best accuracy we can achieve by maximizing the hyperparameters in our random forest model is 87.7%, showing that with the optimal parameters we increased our model accuracy by 1.6%. The optimal parameters for our final random forest model are 2 variables at each split and 50 trees.
+
+```{r}
+Final_rf_model$importance
+
+plot(Final_rf_model)
+
+varImpPlot(Final_rf_model, n.var = 5)
+```
+
+After implementing 3 different classification models -- random forest, kNN, Naive Bayes -- we conclude that our random forest model is the best for our dataset in terms of accuracy with a score of 87.7%.
+
