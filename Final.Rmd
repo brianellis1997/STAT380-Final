@@ -397,7 +397,7 @@ summary(model1)
 
 Our Research Question: Can we accurately predict weapon type based on several factors?
 
-We will have to perform some data cleaning initially to make sure each weapon is accounted for and does not have typos. We then will decide on a threshold of the number of games a weapon must have been used in to be considered, too few games will not be convincing enough. We will be removing partial matches from consideration to keep each observation independent and identically distributed. We will also create a new date variable, most likely around months, which will give us information as to whether the weapons are more prevelant during certain time periods. After this data cleaning process, we will begin feature selection for our models. We will probably build a LASSO feature selection model which can help us determine which features are most important for predicting 'PrimaryWeapon'. When comparing the different models, we must compare them on the same metric which we have determined will be accuracy. We will be using the same random seed of 123 throughout this model process to keep our results replicable and consistent throughout the models. The three models we will be implementing are random forest, kNN classification, and Naive Bayes.
+We will have to perform some data cleaning initially to make sure each weapon is accounted for and does not have typos. We then will decide on a threshold of the number of games a weapon must have been used in to be considered, too few games will not be convincing enough. We will be removing partial matches from consideration to keep each observation independent and identically distributed. We will also create a new date variable, most likely around months, which will give us information as to whether the weapons are more prevelant during certain time periods. After this data cleaning process, we will begin feature selection for our models. We will probably build a LASSO feature selection model which can help us determine which features are most important for predicting 'PrimaryWeapon'. When comparing the different models, we must compare them on the same metric which we have determined will be accuracy. We will be using the same random seed of 42 throughout this model process to keep our results replicable and consistent throughout the models. The three models we will be implementing are random forest, kNN classification, and Naive Bayes.
 
 We'll begin by cleaning our data, doing some initial visualizations to explore the relationship between possible features and our target 'PrimaryWeapon', and creating a new date variable.
 
@@ -529,7 +529,7 @@ formula <- as.formula("PrimaryWeapon ~ Eliminations + Deaths + TotalXP + Score +
 Xmat <- model.matrix(formula, data = Weapons)
 y <- as.numeric(Weapons$PrimaryWeapon)
 
-set.seed(123)
+set.seed(42)
 cv.out <- cv.glmnet(x = Xmat, y = y,
                     alpha = 1, standardize = TRUE,
                     nfolds = 10)
@@ -561,7 +561,7 @@ formula <- as.formula("PrimaryWeapon ~ Eliminations + Deaths + TotalXP + Score +
 Xmat <- model.matrix(formula, data = Weapons)
 y <- as.numeric(Weapons$PrimaryWeapon)
 
-set.seed(123)
+set.seed(42)
 cv.out <- cv.glmnet(x = Xmat, y = y,
                     alpha = 1, standardize = TRUE,
                     nfolds = 10)
@@ -628,7 +628,8 @@ pred_prob <- predict(rf, newdata = Test, type = "prob")
 pred_weapon <- predict(rf, newdata = Test, type = "response")
 
 # Calculate accuracy
-mean(pred_weapon == Test$PrimaryWeapon)
+rf_acc <- mean(pred_weapon == Test$PrimaryWeapon)
+print(rf_acc)
 
 # Parameters and Confusion matrix
 print(rf)
@@ -795,13 +796,16 @@ Final_rf_model <- randomForest(as.factor(PrimaryWeapon) ~ Eliminations + Score +
                                ntree = best_ntrees, 
                                mtry = best_mtry, 
                                importance = TRUE)
-set.seed(NULL)
+
 
 # Get predictions
 pred_weapon_final <- predict(Final_rf_model, newdata = Test, type = "response")
 
 # Calculate accuracy
-mean(pred_weapon_final == Test$PrimaryWeapon)
+final_accuracy <- mean(pred_weapon_final == Test$PrimaryWeapon)
+print(final_accuracy)
+
+set.seed(NULL)
 
 # Best parameters and confusion matrix
 print(Final_rf_model)
