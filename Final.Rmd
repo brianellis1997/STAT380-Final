@@ -51,19 +51,15 @@ head(Players)
 
 Research Question: Which maps are the most likely to win the map vote? 
 
-Since this question is centered around the probability of a map winning the map vote, we will not consider those maps who have null values in either the Map1 or Map2 columns, this includes the games which the player entered partway through. We want to judge only the rows where a vote for which map to play took place, therefore we will first omit any NA values in the Map1 or Map2 columns at the start of our analysis as well as any NA values in the Choice column. We will then get to know our data by listing out each unique map name in Choice, Map1, and Map2 and comparing them to the actual names found in our Maps data frame. If we detect any discrepancies we will have to account for this in our data cleaning step. Once each name is cleaned, we can perform the calculations across the variables. We will count the number of times a map name appears in both Map1 and Map2, the amount of times they were chosen in both Map1 and Map2, the number of Draws of Map Vote and which columns this took place in. It is incredibly important throughout this process that order be maintained throughout the rows so that when we eventually merge the Draw vector, it will be placed in the proper rows where a vote draw occured. From this information we will be able to subtract 'wins' from those maps in the Map1 row where a draw occured and discount losses for the maps in Map2 column where a draw occured. Finally, we'll be able to calculate the proportion of times a map won the map vote by getting more votes than the other and glean from that information the maps most likely to win the map vote.
+Since this question is centered around the probability of a map winning the map vote, we will not consider those maps which have null values in either the Map1 or Map2 columns, this includes the games which the player entered partway through. We want to judge only the rows where a vote took place, therefore we will omit any NA values in the Map1 or Map2 columns at the start of our analysis as well as any NA values in the Choice column. We will then get to know our data by listing out each unique map name in Choice, Map1, and Map2 and comparing them to the actual names found in our Maps data frame. If we detect any discrepancies we will have to account for this in our data cleaning step. Once each name is cleaned, we can perform the calculations across the variables. We will count the number of times a map name appears in both Map1 and Map2, the amount of times they were chosen in both Map1 and Map2, the number of Draws of Map Vote and which columns this took place in. It is incredibly important throughout this process that order be maintained throughout the rows so that when we eventually merge the Draw vector it will be placed in the proper row. From this information we will be able to subtract 'wins' from those maps in the Map1 row where a draw occurred and discount losses for the maps in Map2 column where a draw occurred. Finally, we'll be able to calculate the proportion of times a map won the map vote by getting more votes than the other and conclude from that information which maps are most likely to win the map vote.
 
 ```{r}
-sum(is.na(Players$Choice))
-```
-we see that there are only 2 NA values, so most of our data is present.
-
-```{r}
+# Compare map names of Choice to actual Map names
 unique(Players$Choice)
 unique(Maps$Name)
 ```
 
-We can see that there are more unique map names in our Players dataframe as compared with the list of all the map names from our Maps dataframe. This shows us there are misspellings in the map names in the Players dataframe that we must correct before calculating summary statistics.
+We can see that there are more unique map names in our Players data frame as compared with the list of all the map names from our Maps data frame. This shows us there are misspellings in the map names in the Players data frame that we must correct before calculating summary statistics.
 
 ```{r}
 Maps %>% 
@@ -74,8 +70,6 @@ Maps %>%
 
 
 Using this join query, we can see there are multiple misspellings, added spaces, and a couple NA values. We shall correct for all this before running summaries.
-
-Before running summary statistics, we must clean the data contained within the Choice and Map variables
 
 ```{r}
 # Choice Data Cleaning
@@ -90,7 +84,7 @@ Players <- Players %>%
          Map1 = trimws(Map1),
          Map2 = trimws(Map2))
 
-# Define a list of misspellings and their correct spellings and specify certain spellings for words with spaces in their names with '\\W'
+# Define a list of misspellings and their correct spellings
 misspellings <- list("APocalypse" = "Apocalypse", "Apocolypse" = "Apocalypse", "\\bCollaterel Strike\\b" = "Collateral", "\\bCollateral Strike\\b" = "Collateral", "Deisel" = "Diesel", "Drive-in" = "Drive-In", "\\bMiami Strike\\b" = "MiamiStrike", "\\bNuketown\\b.*" = "Nuketown", "Riad" = "Raid")
 
 # Loop through the misspellings list and apply regex to correct the misspellings
@@ -111,14 +105,12 @@ Our misspellings are corrected and we can perform this data cleaning process on 
 ```{r}
 sum(is.na(Players$Map1))
 sum(is.na(Players$Map2))
-Players %>% 
-  filter(FullPartial == "Partial") %>% 
-  summarize(Count = n())
 ```
 
-Both Map1 and Map2 variables have 163 missing values even though there are only 80 Partial games in the dataset. Therefore, we shouldn't remove the rows with NA values because those rows still have Choice values. Let's see if we can find typos in the map names by comparing them with the Map table
+Now we will perform the same data cleaning steps with Map1 and Map2.
 
 ```{r}
+# Compare names of Map1 and correct map names
 Maps %>% 
   full_join(Players, by = c("Name" = "Map1")) %>% 
   group_by(Name) %>% 
@@ -129,10 +121,9 @@ Since there are new typos, we just need to adjust our misspellings list to accou
 
 ```{r}
 # Map1 Data Cleaning
-# Define a list of misspellings and their correct spellings and specify certain spellings for words with spaces in their names with '\\b'
 misspellings <- list("\\bCollateral Striek\\b" = "Collateral", "\\bCollateral Strike\\b" = "Collateral", "\\bCollaterol Strike\\b" = "Collateral", "Deprogam" = "Deprogram", "Drive-in" = "Drive-In", "\\bMiami Stirke\\b" = "MiamiStrike", "\\bMiami Strike\\b" = "MiamiStrike", "\\bNuketown '84\\b" = "Nuketown", "Riad" = "Raid", "Ruah" = "Rush")
 
-# Loop through the misspellings list and apply regex to correct the misspellings
+# Correct misspellings
 for (misspelling in names(misspellings)) {
   correction <- misspellings[[misspelling]]
   Players$Map1 <- gsub(misspelling, correction, Players$Map1, ignore.case = TRUE)
@@ -146,6 +137,7 @@ Players %>%
 Great, now we just have to clean the names of Map2 and we can begin performing visualizations and running summary statistics.
 
 ```{r}
+# Compare Map2 names with actual names
 Maps %>% 
   full_join(Players, by = c("Name" = "Map2")) %>% 
   group_by(Name) %>% 
@@ -154,10 +146,9 @@ Maps %>%
 
 ```{r}
 # Map2 Data Cleaning
-# Define a list of misspellings and their correct spellings
 misspellings <- list("\\bAmrada Strike\\b" = "Armada Strike", "\\bCollateral Strike\\b" = "Collateral", "Drive-in" = "Drive-In", "\\bMiami Sstrike\\b" = "MiamiStrike", "\\bMiami Stirke\\b" = "MiamiStrike", "\\bMiami Strike\\b" = "MiamiStrike", "\\bNuketown\\b.*" = "Nuketown", "\\byamantau\\b" = "Yamantau")
 
-# Loop through the misspellings list and apply regex to correct the misspellings
+# Loop
 for (misspelling in names(misspellings)) {
   correction <- misspellings[[misspelling]]
   Players$Map2 <- gsub(misspelling, correction, Players$Map2, ignore.case = TRUE)
@@ -204,7 +195,7 @@ Players %>%
 
 From these visualizations, we can verify that the map names do not change but the distributions do. Our data cleaning is complete and we can now move onto calculating proportions.
 
-Now we need to work with the MapVote variable and identify when a tie takes place. This is important, because whenever there is a tie Map1 gets chosen by default. We will first alter the MapVote variable into a numerical form where we can compare the two numbers in the column between eachother and store each time the two numbers are equivalent.
+Now we need to work with the 'MapVote' variable and identify when a tie takes place. This is important, because whenever there is a tie, 'Map1' gets chosen by default. We will first alter the 'MapVote' variable into a numerical form where we can compare the two numbers in the column between each other and store each time the two numbers are equivalent.
 
 ```{r}
 # Remove NAs from Mapvote
@@ -228,16 +219,13 @@ for (i in 1:length(Vote_split)) {
 }
 
 print(First_vote[500:600])
-print(which(First_vote == "4 o 0"))
-print(which(First_vote == "2 o 0"))
 print(length(First_vote))
 print(length(Second_vote))
 ```
 
-We see that there are some entries that do not represent numbers that will be unsuccessfully converted to numeric values if we were to convert them now. We must impute these values and figure out there true meaning. The two entries in question from our vector First_vote are "4 o 0" and "2 o 0". This relates to a fundamental problem in our strsplit initially. The word "to" is misspelled as "o", meaning that these numbers will not be recognized by our split. This doesn't cause us an issue in this case because we are only concerned with the votes that ended up being ties and it seems like the votes were "2 to 0" and "4 to 0" respectively. This is something to note at the very least, let's now check our Second_vote vector to see the values before we convert them to numeric.
+We see that there are some entries that do not represent numbers and will fail to convert to numeric values if we were to try now. We must impute these values and figure out there true meaning. The two entries in question from our vector First_vote are "4 o 0" and "2 o 0". This relates to a fundamental problem in our strsplit. The word "to" is misspelled as "o", meaning that these numbers will not be recognized by our split.
 
 Now we know we must fix our strsplit function to cover these two cases.
-
 
 ```{r}
 # Split Mapvote by "to" or "o"
@@ -258,8 +246,6 @@ for (i in 1:length(Vote_split)) {
 }
 
 print(First_vote[500:600])
-print(which(First_vote == "4 o 0"))
-print(which(First_vote == "2 o 0"))
 print(length(First_vote))
 print(length(Second_vote))
 ```
@@ -268,11 +254,9 @@ Now we can't find the previous misspelled values and our number of rows are stil
 
 We can compare the two vectors and count the number of times they match which would be equivalent to a draw. It is important that we keep the original order of our data frame so that we can know which rows ended in draws. We can then append the draw vector to our original data frame.
 
-We now arrive at the number of times there was a draw in map votes between two maps. We know that whenever this occurs, Map1 is chosen by default. We can take this into consideration during our calculations.
+We now arrive at the number of times there was a draw in map votes between two maps. We know that whenever this occurs, 'Map1' is chosen by default. We can take this into consideration during our calculations.
 
-Whenever the map vote results in a tie, we should discard the result of Choice and not consider it as a win. We need to loop through all rows in the data frame Players and compare the map vote totals. If there is a tie, we must note this and discard Choice, otherwise, the Choice correclty depicts the winner. We must make proportions, by summing up the total number of times a map was present in either Map1 or Map2 and its winning percentage. We may or may not discard the NA values of Map1 and Map2 because we don't know which maps the winner was competing against, but let's see.
-
-It is important that we maintain order in our vector Draw so that we can append it to the Players dataframe and have it correctly represent the row that ends in a draw.
+Whenever the map vote results in a tie, we should discard the result of 'Choice' and not consider it as a win. We need to loop through all rows in the data frame Players and compare the map vote totals. If there is a tie, we must note this and discard 'Choice', otherwise, 'Choice' correctly depicts the winner. We must make proportions by summing up the total number of times a map was present in either 'Map1' or 'Map2' and its winning percentage. We may or may not discard the NA values of 'Map1' and 'Map2' because we don't know which maps the winner was competing against, but let's see.
 
 ```{r}
 # Convert to numeric for comparison sake
@@ -292,10 +276,7 @@ for (i in 1:length(Vote_split)) {
     Draw[i] <- 0
   }
 }
-sum(Draw)
 ```
-
-We get 103 for the sum in Draw which is the same as our previous calculations, telling us that our loop worked and we can now add this Draw vector to the Players data frame and begin comparison.
 
 ```{r}
 Players <-
@@ -308,6 +289,7 @@ head(Players)
 After adding the Draw vector, we see it correctly indicates a 1 in the 4th row where there is a draw in the MapVote column.
 
 ```{r}
+# First we summarize the totals from Map1 and Map2 and join them together
 MapVoteWin <- Players %>%
   group_by(Map1) %>%
   summarize(Map1_Count = n(), Choice_M1 = sum(Choice == Map1), Draw_M1 = sum(Draw), Real_Win = Choice_M1 - Draw_M1) %>%
@@ -317,13 +299,14 @@ MapVoteWin <- Players %>%
       summarize(Map2_Count = n(), Choice_M2 = sum(Choice == Map2), Draw_M2 = sum(Draw), Real_Loss = Map2_Count - Draw_M2),
     by = c("Map1" = "Map2")
   ) %>%
+  # Next we create summary variables  
   mutate(
-    Total_Count = Map1_Count + Map2_Count,
-    Total_Choice = Choice_M1 + Choice_M2,
-    Total_Draw = Draw_M1 + Draw_M2,
-    Prop_Choice = Total_Choice / Total_Count,
-    Adjusted_Choice_Count = Real_Win + Choice_M2,
-    Adjusted_Prop_Choice = Adjusted_Choice_Count / (Map1_Count + Real_Loss)
+    Total_Count = Map1_Count + Map2_Count,        # Total amount of times Map appeared as potential Choice
+    Total_Choice = Choice_M1 + Choice_M2,         # Total amount of times Map was Chosen
+    Total_Draw = Draw_M1 + Draw_M2,               # Total Draws of Map
+    Prop_Choice = Total_Choice / Total_Count,     # Selection proportion
+    Adjusted_Choice_Count = Real_Win + Choice_M2, # Total Count with default wins by Draw removed
+    Adjusted_Prop_Choice = Adjusted_Choice_Count / (Map1_Count + Real_Loss)   # Proportion of the times Map gained more votes than its competitor
   ) %>% 
   rename(Map = Map1) %>% 
   na.omit()
@@ -336,12 +319,13 @@ MapVoteWin %>%
   arrange(desc(Adjusted_Prop_Choice))
 ```
 
-From this analysis, we can see that the 3 maps most likely to win the map vote are Raid, Nuketown, and Crossroads Strike with true winning percentages of 75.6%, 73.7%, and 73.2% respectively. Nuketown actually had the highest proportion of Choice selection, with 82.5%, however it drew in map voting 5 times when it was Map1 and thus was selected 5 times by default when there was a tie in voting, greatly boosting its Choice proportion. This is why we created the variables of 'Real_Win' and 'Real_Loss' to account for the number of times a map in Map1 column truly won the map vote and not by default and the number of times a map in Map2 actually lost the map vote and not lost by default because of a tie.
+From this analysis, we can see that the 3 maps most likely to win the map vote are Raid, Nuketown, and Crossroads Strike with true winning percentages of 75.6%, 73.7%, and 73.2% respectively. Nuketown actually had the highest proportion of Choice selection, with 82.5%, however it drew in map voting 5 times when it was 'Map1' and thus was selected 5 times by default when there was a tie in voting, greatly boosting its 'Choice' proportion. This is why we created the variables of 'Real_Win' and 'Real_Loss' to account for the number of times a map in 'Map1' column truly won the map vote and the number of times a map in 'Map2' actually lost the map vote and not lost by default because of a tie.
 
-We can visualze this data
+We can visualze this data:
+
 ```{r}
 MapVoteWin %>% 
-  ggplot(aes(x = Map, fill = "dodgerblue")) +
+  ggplot(aes(x = reorder(Map, -Adjusted_Prop_Choice), fill = "dodgerblue")) +
   geom_bar(aes(weight = Adjusted_Prop_Choice), show.legend = F) +
   scale_fill_manual(values = c("dodgerblue")) +
   labs(title = "Probability to Win Map Vote",
@@ -350,7 +334,7 @@ MapVoteWin %>%
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
 ```
 
-(maybe add more visualizations)
+We visualize the adjusted proportion of choice by map and can see that Raid, Nuketown, and Crossroads Strike are the maps with the highest probability of winning the map vote.
 
 # Task 2
 
@@ -413,8 +397,7 @@ summary(model1)
 
 ## Task 3
 
-Which Primary Weapon is best in terms of Eliminations? (If we were given a player's stat line, can we know which weapon they used?)
-Can we predict weapon type based on several factors?
+Can we accurately predict weapon type based on several factors?
 
 To answer this research question, we will have to account for factors such as which game type because each types has different lengths . We will go by average eliminations for each weapon and account for factors such as game type which can have different lengths. We will have to perform some data cleaning initially to make sure each weapon is accounted for and does not have typos. We then will decide on a threshold of the number of games a weapon must have been used in to be considered, too few games will not be convincing enough. We will be removing partial matches from consideration since we are analyzing a counting statistic 'Eliminations'. When comparing the different models, we must compare them on the same metric which will be accuracy. We will be using the same random seed of 123 throughout this model process to keep our results replicable and consistent throughout the models.
 
