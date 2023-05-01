@@ -812,5 +812,5 @@ plot(Final_rf_model)
 varImpPlot(Final_rf_model, n.var = 5)
 ```
 
-After implementing 3 different classification models -- random forest, kNN, Naive Bayes -- we conclude that our random forest model is the best for our dataset in terms of accuracy with a score of 87.7%.
+After implementing 3 different classification models -- random forest, kNN, Naive Bayes -- we conclude that our random forest model is the best for predicting 'PrimaryWeapon' based on the factors of 'Damage', 'Eliminations', 'Score', 'GameType', and 'Month' with an accuracy of 87.7%.
 
