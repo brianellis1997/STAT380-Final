@@ -252,7 +252,7 @@ We can compare the two vectors and count the number of times they match which wo
 
 We now arrive at the number of times there was a draw in map votes between two maps. We know that whenever this occurs, 'Map1' is chosen by default. We can take this into consideration during our calculations.
 
-Whenever the map vote results in a tie, we should discard the result of 'Choice' and not consider it as a win. We need to loop through all rows in the data frame Players and compare the map vote totals. If there is a tie, we must note this and discard 'Choice', otherwise, 'Choice' correctly depicts the winner. We must make proportions by summing up the total number of times a map was present in either 'Map1' or 'Map2' and its winning percentage. We may or may not discard the NA values of 'Map1' and 'Map2' because we don't know which maps the winner was competing against, but let's see.
+Whenever the map vote results in a tie, we should discard the result of 'Choice' and not consider it as a win. We need to loop through all rows in the data frame Players and compare the map vote totals. If there is a tie, we must note this and discard 'Choice', otherwise, 'Choice' correctly depicts the winner. We must make proportions by summing up the total number of times a map was present in either 'Map1' or 'Map2' and its winning percentage.
 
 ```{r}
 # Convert to numeric for comparison sake
@@ -319,7 +319,7 @@ MapVoteWin %>%
 
 From this analysis, we can see that the 3 maps most likely to win the map vote are Raid, Nuketown, and Crossroads Strike with true winning percentages of 75.6%, 73.7%, and 73.2% respectively. Nuketown actually had the highest proportion of Choice selection, with 82.5%, however it drew in map voting 5 times when it was 'Map1' and thus was selected 5 times by default when there was a tie in voting, greatly boosting its 'Choice' proportion. This is why we created the variables of 'Real_Win' and 'Real_Loss' to account for the number of times a map in 'Map1' column truly won the map vote and the number of times a map in 'Map2' actually lost the map vote and not lost by default because of a tie.
 
-We can visualze this data:
+We can visualize this data:
 
 ```{r}
 MapVoteWin %>% 
@@ -453,7 +453,7 @@ Players %>%
   summarize(N = n())
 ```
 
-Now we will select only the weapons which appear in more than 50 games to reduce the number of classes for our classification models.
+Now we will select only the weapons which appear in more than 40 games to reduce the number of classes for our classification models.
 
 ```{r}
 # Remove weapons with few game counts
@@ -466,7 +466,7 @@ Weapons %>%
   summarise(N = n())
 ```
 
-We see that there are 5 weapons which were used in 50 games or more, these will be the main classes of weapons which we will try and predict with our models. Our main intuition about these weapons is that they should differ in terms of 'Eliminations' and 'Damage'. Let's see if our intuition is correct with some visualizations:
+We see that there are 5 weapons which were used in 40 games or more, these will be the main classes of weapons which we will try and predict with our models. Our main intuition about these weapons is that they should differ in terms of 'Eliminations' and 'Damage'. Let's see if our intuition is correct with some visualizations:
 
 ```{r}
 # Visualizing Eliminations for each Weapon
