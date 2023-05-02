@@ -704,14 +704,17 @@ nb_pred <- predict(nb_model, newdata = Test)
 
 # calculate the accuracy of the model
 nb_accuracy <- sum(nb_pred == Test$PrimaryWeapon) / nrow(Test)
+nb_accuracy
 ```
+
+Now we'll create a loop to find the optimal laplace value and attempt to increase the accuracy of our bayes model.
 
 ```{r}
 # Set up vector of laplace values to test
 laplace_values <- seq(-2, 1, by = 0.1)
 
 # Create an empty vector to store accuracy values
-accuracy_values <- numeric(length = length(laplace_values))
+accuracy_values <- rep(NA, length(laplace_values))
 
 # Loop through laplace values and fit naive bayes models
 for (i in seq_along(laplace_values)) {
@@ -734,6 +737,8 @@ nb_model <- naiveBayes(as.factor(PrimaryWeapon) ~ Eliminations + Score + Damage 
                        data = Train, 
                        laplace = optimal_laplace)
 ```
+
+Now we'll plot the accuracy along the different laplace values.
 
 ```{r}
 # create a data frame with laplace_values and corresponding accuracies
@@ -781,7 +786,7 @@ for (ntrees in ntrees_range) {
     # Calculate accuracy of model
     accuracy <- sum(predict(looped_rf, Test) == Test$PrimaryWeapon) / nrow(Test)
     
-    # Check if current accuracy is better than previous best accuracy
+    # Check if current accuracy is better than previous best accuracy. If so, then store the parameter values
     if (accuracy > best_accuracy) {
       best_accuracy <- accuracy
       best_ntrees <- ntrees
@@ -790,7 +795,7 @@ for (ntrees in ntrees_range) {
   }
 }
 
-# Fit model with best parameter values and print results
+# Fit model with best parameter values
 Final_rf_model <- randomForest(as.factor(PrimaryWeapon) ~ Eliminations + Score + Damage + GameType + Month, 
                                data = Train, 
                                ntree = best_ntrees, 
@@ -812,14 +817,6 @@ print(Final_rf_model)
 ```
 
 We see that the best accuracy we can achieve by maximizing the hyperparameters in our random forest model is 87.7%, showing that with the optimal parameters we increased our model accuracy by 1.5%. The optimal parameters for our final random forest model are 2 variables at each split and 50 trees.
-
-```{r}
-Final_rf_model$importance
-
-plot(Final_rf_model)
-
-varImpPlot(Final_rf_model, n.var = 5)
-```
 
 After implementing 3 different classification models -- random forest, kNN, Naive Bayes -- we conclude that our random forest model is the best for predicting 'PrimaryWeapon' based on the factors of 'Damage', 'Eliminations', 'Score', 'GameType', and 'Month' with an accuracy of 87.7%.
 
