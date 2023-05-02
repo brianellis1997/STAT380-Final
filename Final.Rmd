@@ -475,8 +475,7 @@ Weapons %>%
   geom_boxplot() +
   labs(title = "Eliminations by Primary Weapon",
        x = "Primary Weapon",
-       y = "Eliminations") +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+       y = "Eliminations")
 ```
 
 ```{r}
@@ -487,7 +486,6 @@ Weapons %>%
   labs(title = "Damage by Primary Weapon",
        x = "Primary Weapon",
        y = "Damage")
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
 ```
 
 While 'Eliminations' doesn't give us a lot of information, 'Damage' seems like the variable which has a higher variance amongst the different weapons.
