@@ -334,7 +334,11 @@ MapVoteWin %>%
 
 We visualize the adjusted proportion of choice by map and can see that Raid, Nuketown, and Crossroads Strike are the maps with the highest probability of winning the map vote.
 
-# Task 2
+## Task 2
+
+Research Question: How does the game type affect TotalXP after accounting for the Score?
+
+We first need to clean the data and clear the distinction between HC game modes and non-HC game modes. We will then perform exploratory data analysis by creating summary statistics (specifically mean, median, and standard deviation), a scatterplot and boxplots. After we understand our data, we will create a linear regression model to find how the game type affects TotalXP after accounting for the Score. 
 
 ```{r}
 
@@ -354,6 +358,17 @@ Players %>%
 
 The GameType column has been cleaned so we can now start an exploratory data analysis. 
 
+```{r}
+summary_stats <- aggregate(cbind(TotalXP, Score) ~ GameType, Players, function(x) {
+  c(Mean = mean(x), Median = median(x), SD = sd(x))
+})
+
+print(summary_stats)
+```
+
+
+For TotalXP, the mean values range from 11,531 for Kill Confirmed to 19,989 for Domination. The median values range from 9,945 for Kill Confirmed to 20,323 for Domination. The standard deviation values range from 4,511 for Kill Confirmed to 7,365 for Hardpoint. For Score, the mean values range from 2,089 for Kill Confirmed to 3,537 for Domination. The median values range from 2,975 for Hardpoint to 3,500 for Domination. The standard deviation values range from 750 for Domination to 1,384 for TDM. From these statistics, we can see that the mean and median TotalXP values are highest for Domination, followed by Hardpoint and TDM, and then by Kill Confirmed. This suggests that players tend to earn more TotalXP in game types where there are objectives to complete compared to game types where the objective is primarily to eliminate opponents. For Score, we can see that the mean and median values are highest for Domination, followed by Hardpoint, TDM, and then by Kill Confirmed. This suggests that players tend to score more points in game types where there are objectives to complete, consistent with the pattern observed for TotalXP.
+
 
 ```{r}
 ggplot(Players,
@@ -364,6 +379,8 @@ ggplot(Players,
        y = "Total experience points")
 
 ```
+
+There is a strong positive linear relationship between Score and TotalXP for every game type, with domination being the highest. 
 
 
 
@@ -380,11 +397,7 @@ ggplot(Players, aes(x = GameType, y = Score)) +
 
 ```
 
-```{r}
-
-```
-
-
+For TotalXP by Gametype there are several outliers for Hardpoint, Kill Confirmed, and TDM. Hardpoint has the highest maximum for TotalXP earned while TDM has the lowest minimum. Overall, Hardpoint and Domination are pretty close for the highest amount of TotalXP earned while Kill Confirmed is the lowest. For Score by Gametype there are several outliers for Domination, Hardpoint, and TDM. TDM has the highest mxaimum Score and the lowest minimum Score. Overall, Hardpoint and TDM are close for the highest amount of Score while Kill Confimed has the lowest Score. 
 
 ```{r}
 model1 <- lm(TotalXP ~ Score + GameType, data = Players)
@@ -392,12 +405,14 @@ summary(model1)
 
 ```
 
+After accounting for Score, the difference in the total amount of XP between Domination and Hardpoint is only 121, with Hardpoint being a little higher. But the TotalXP decreases by 2,500 to 3,700 when the Gametype is TDM and Kill Confirmed, respectively. This shows that players tend to acquire a higher TotalXP in game types where there are objectives to complete than when the objective is to get eliminations. 
+
 
 ## Task 3
 
 Our Research Question: Can we accurately predict weapon type based on several factors?
 
-We will have to perform some data cleaning initially to make sure each weapon is accounted for and does not have typos. We then will decide on a threshold of the number of games a weapon must have been used in to be considered, too few games will not be convincing enough. We will be removing partial matches from consideration to keep each observation independent and identically distributed. We will also create a new date variable, most likely around months, which will give us information as to whether the weapons are more prevelant during certain time periods. After this data cleaning process, we will begin feature selection for our models. We will probably build a LASSO feature selection model which can help us determine which features are most important for predicting 'PrimaryWeapon'. When comparing the different models, we must compare them on the same metric which we have determined will be accuracy. We will be using the same random seed of 42 throughout this model process to keep our results replicable and consistent throughout the models. The three models we will be implementing are random forest, kNN classification, and Naive Bayes.
+We will have to perform some data cleaning initially to make sure each weapon is accounted for and does not have typos. We then will decide on a threshold of the number of games a weapon must have been used in to be considered, too few games will not be convincing enough. We will be removing partial matches from consideration to keep each observation independent and identically distributed. We will also create a new date variable, most likely around months, which will give us information as to whether the weapons are more prevalent during certain time periods. After this data cleaning process, we will begin feature selection for our models. We will probably build a LASSO feature selection model which can help us determine which features are most important for predicting 'PrimaryWeapon'. When comparing the different models, we must compare them on the same metric which we have determined will be accuracy. We will be using the same random seed of 42 throughout this model process to keep our results replicable and consistent throughout the models. The three models we will be implementing are random forest, kNN classification, and Naive Bayes.
 
 We'll begin by cleaning our data, doing some initial visualizations to explore the relationship between possible features and our target 'PrimaryWeapon', and creating a new date variable.
 
@@ -438,7 +453,7 @@ Players %>%
   summarize(N = n())
 ```
 
-Now we will select only the weapons which appear in more than 50 games to reduce the number of classes for our classifcation models.
+Now we will select only the weapons which appear in more than 50 games to reduce the number of classes for our classification models.
 
 ```{r}
 # Remove weapons with few game counts
@@ -451,10 +466,10 @@ Weapons %>%
   summarise(N = n())
 ```
 
-We see that there are 5 weapons which were used in 50 games or more, these will be the main classes of weapons which we will try and predict with our models. Our main intuition about these weapons is that they should differ in terms of 'Eliminations' and 'Damage'. Let's see if our intuition is correct with some visualzations:
+We see that there are 5 weapons which were used in 50 games or more, these will be the main classes of weapons which we will try and predict with our models. Our main intuition about these weapons is that they should differ in terms of 'Eliminations' and 'Damage'. Let's see if our intuition is correct with some visualizations:
 
 ```{r}
-# Visualzing Eliminations for each Weapon
+# Visualizing Eliminations for each Weapon
 Weapons %>% 
   ggplot(aes(x = PrimaryWeapon, y = Eliminations)) +
   geom_boxplot() +
@@ -465,7 +480,7 @@ Weapons %>%
 ```
 
 ```{r}
-# Visualzing Damage for each Weapon
+# Visualizing Damage for each Weapon
 Weapons %>% 
   ggplot(aes(x = PrimaryWeapon, y = Damage)) +
   geom_boxplot() +
